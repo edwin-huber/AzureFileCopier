@@ -1,0 +1,30 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "apiProfile": "2017-03-09-profile",
+    "parameters": { "redisCacheName" : {
+        "type" : "string",
+        "defaultValue": "azcopierredistest",
+        "metadata": {
+          "description": "Name to give the redis cache in tests"
+        }
+      } },
+    "variables": {  },
+    "functions": [  ],
+    "resources": [
+    {    
+    "apiVersion": "2015-08-01",
+    "name": "[parameters('redisCacheName')]",
+    "type": "Microsoft.Cache/Redis",
+    "location": "westeurope",
+    "properties": {
+      "enableNonSslPort": false,
+      "sku": {
+          "family": "C",
+          "name": "Basic",
+        "capacity": 0
+        }
+    }
+    }],
+    "outputs": {  }
+}

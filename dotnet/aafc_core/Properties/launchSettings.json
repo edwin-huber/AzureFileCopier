@@ -1,0 +1,44 @@
+{
+  "profiles": {
+    "aafccore": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p E:\\testing\\testcontent4 -w 8 --pathtoremove testing"
+    },
+    "reset": {
+      "commandName": "Project",
+      "commandLineArgs": "reset -w 16"
+    },
+    "copy1": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p E:\\testing\\testcontent4 -w 8 --pathtoremove testing --batchmode true --batchclient 1"
+    },
+    "copy1_rib": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p I:\\RIB\\DaguArchiv\\ADRESSE\\0009 -w 8 --pathtoremove RIB --batchmode true --batchclient 0"
+    },
+    "copy0": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p E:\\testing\\testcontent4 -w 8 --pathtoremove testing --batchmode true --batchclient 0"
+    },
+    "copy4": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p E:\\testing\\testcontent4 -w 8 --pathtoremove testing --batchmode true --batchclient 4"
+    },
+    "copy3": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p E:\\testing\\testcontent4 -w 8 --pathtoremove testing --batchmode true --batchclient 3"
+    },
+    "aafccore_16": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p E:\\testing\\testcontent4 -w 16 --pathtoremove testing --excludefolders E:\\testing\\testcontent4\\2,E:\\testing\\testcontent4\\1 --excludefiles office.jpg"
+    },
+    "copy_10": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p E:\\testing\\testcontent4 -w 16 --pathtoremove testing --batchmode true --batchclient 10"
+    },
+    "copyfullRIBadresse": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -p I:\\RIB\\DaguArchiv\\ADRESSE\\0009 -w 32 --pathtoremove RIB"
+    }
+  }
+}
