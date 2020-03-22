@@ -35,7 +35,7 @@ namespace aafccore.servicemgmt
             }
             else
             {
-                hiddenMessageTimeout = TimeSpan.FromSeconds(15);
+                hiddenMessageTimeout = TimeSpan.FromSeconds(60);
             }
             CreateQueue(queueName, hiddenMessageTimeout);
         }
@@ -94,6 +94,10 @@ namespace aafccore.servicemgmt
                         if ((message == null || tempMessage == null) || (tempMessage.Id == message.Id))
                         {
                             dequeueing = false;
+                        }
+                        else
+                        {
+                            Log.Always(FixedStrings.QueueBackOff);
                         }
                     }
                     else

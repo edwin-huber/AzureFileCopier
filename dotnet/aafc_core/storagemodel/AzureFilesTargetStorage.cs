@@ -52,8 +52,7 @@ namespace aafccore.storagemodel
                 Log.Always(e.Message);
             }
             sw.Stop();
-            float res = sw.ElapsedMilliseconds / 1000;
-            Log.Always(FixedStrings.CopyingFile + sourceFilePath + " : " + res.ToString() );
+            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds);
             return succeeded;
         }
 

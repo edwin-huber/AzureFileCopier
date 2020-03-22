@@ -29,6 +29,7 @@ namespace aafccore.work
         private readonly FolderOptions opts;
         private readonly StringBuilder pathAdjuster = new StringBuilder(300);
         private readonly double largeFileSize = Configuration.Config.GetValue<double>(ConfigStrings.LARGE_FILE_SIZE_BYTES);
+        private readonly int MaxQueueRetry = Configuration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
 
         // Polly Retry Control
         private static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.MAX_RETRY);
@@ -106,17 +107,20 @@ namespace aafccore.work
             }
         }
 
+        /// <summary>
+        /// Processes work based on workitems found in the queues
+        /// </summary>
+        /// <returns></returns>
         private async Task ProcessAllWork()
         {
-            // requires that we can connect to the folder work queue
-            // Process folders queue until done
-            Log.Always("Processing Folder Work Queue");
+            // ToDo: Add Job / Queue Id to log events
+            Log.Always(FixedStrings.StartingFolderQueueLogJson);
             await ProcessWorkQueue(azureFolderWorkItemMgmt, false).ConfigureAwait(true);
-            Log.Always("Processing File Work Queue");
-            // process files queue until done
+            
+            Log.Always(FixedStrings.StartingFileQueueLogJson);
             await ProcessWorkQueue(azureFileWorkItemMgmt, true).ConfigureAwait(true);
-            Log.Always("Processing LargeFile Work Queue");
-            // process large files queue until done
+
+            Log.Always(FixedStrings.StartingLargeFileQueueLogJson);
             await ProcessWorkQueue(azureLargeFileWorkItemMgmt, true).ConfigureAwait(true);
         }
 
@@ -135,16 +139,18 @@ namespace aafccore.work
 
             topLevelFolders = topLevelFolders.GetRange(batchIndex, batchLength);
 
-            Log.Always(FixedStrings.ProcessingQueue + batchIndex);
+            
             if(topLevelFoldersCount > opts.WorkerCount)
             {
-                // We have more folders than workers, we assign queues based on ThreadId
+                // We have more folders than workers, we assign queues based on Worker Id
+                Log.Always(FixedStrings.ProcessingQueue + opts.WorkerId);
                 azureFolderWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
                 azureFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
             }
             else
             {
                 // We have more workers than folders, we assign queues based on zero based folder index
+                Log.Always(FixedStrings.ProcessingQueue + batchIndex);
                 azureFolderWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + batchIndex, false);
                 azureFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + batchIndex, false);
             }
@@ -220,10 +226,11 @@ namespace aafccore.work
         private async Task ProcessWorkQueue(AzureQueueWorkItemMgmt workQueue, bool isFileQueue)
         {
             int retryCount = 0;
+            int sleepTime = 0;
             try
             {
-                // we loop through 3 times, in case there are other workers still submitting stuff...
-                while (retryCount < 3)
+                // we loop through several times, in case there are other workers still submitting stuff...
+                while (retryCount < MaxQueueRetry)
                 {
                     bool thereIsWork = await IsThereWork(workQueue).ConfigureAwait(false);
 
@@ -260,7 +267,7 @@ namespace aafccore.work
                         retryCount++;
                         // jittering the retry
                         Random rnd = new Random();
-                        int sleepTime = rnd.Next(1, 3) * 250;
+                        sleepTime = rnd.Next(1, 3) * 250;
                         Thread.Sleep(sleepTime);
                     }
                 }
