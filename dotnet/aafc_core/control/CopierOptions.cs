@@ -34,7 +34,7 @@ namespace aafccore.control
 
         [Option("batchclient", Required = false,
         HelpText = FixedStrings.BatchClient)]
-        public int BatchClient { get; set; } = 0;
+        public int WorkerId { get; set; } = 0;
 
         [Option('f', "fullcheck", Required = false,
         Default = false,

@@ -6,6 +6,7 @@ using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.File;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace aafccore.storagemodel
@@ -18,7 +19,7 @@ namespace aafccore.storagemodel
     internal class AzureFilesTargetStorage : ITargetStorage
     {
         internal string AzureFileStorageUri { get; set; }
-
+        private Stopwatch sw = new Stopwatch();
         readonly StorageCredentials storageCreds;
         internal AzureFilesTargetStorage()
         {
@@ -35,20 +36,24 @@ namespace aafccore.storagemodel
         /// <returns></returns>
         public bool CopyFile(string sourceFilePath, string targetFolderPath)
         {
+            sw.Reset();
             string fileName = Path.GetFileName(sourceFilePath);
             CloudFileDirectory cloudDirectory = new CloudFileDirectory(new Uri(AzureFileStorageUri + "/" + targetFolderPath), storageCreds);
             CloudFile destinationFile = cloudDirectory.GetFileReference(fileName);
-            Log.Always(FixedStrings.CopyingFile + sourceFilePath);
             bool succeeded = false;
+            sw.Start();
             try
             {
-                destinationFile.UploadFromFile(sourceFilePath);
+                destinationFile.UploadFromFileAsync(sourceFilePath).Wait();
                 succeeded = true;
             }
             catch (Exception e)
             {
                 Log.Always(e.Message);
             }
+            sw.Stop();
+            float res = sw.ElapsedMilliseconds / 1000;
+            Log.Always(FixedStrings.CopyingFile + sourceFilePath + " : " + res.ToString() );
             return succeeded;
         }
 

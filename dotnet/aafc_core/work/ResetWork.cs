@@ -1,4 +1,5 @@
 ﻿using aafccore.control;
+using aafccore.resources;
 using aafccore.servicemgmt;
 using aafccore.util;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +12,6 @@ namespace aafccore.work
     {
         private readonly ResetOptions opts;
         private static ISetInterface folderDoneSet;
-        private readonly AzureStorageQueue CopyFilesQueue;
         private readonly AzureStorageQueue LargeFilesQueue;
 
         public ResetWork(ResetOptions opts_in)
@@ -19,9 +19,6 @@ namespace aafccore.work
             opts = opts_in;
             AzureServiceFactory.Init(opts);
             folderDoneSet = AzureServiceFactory.GetFolderDoneSet();
-
-            CopyFilesQueue = AzureServiceFactory.GetFileCopyQueue();
-
             LargeFilesQueue = AzureServiceFactory.GetLargeFilesQueue();
         }
 
@@ -29,8 +26,12 @@ namespace aafccore.work
         {
             Log.Always("Resetting redis cache set");
             await folderDoneSet.Reset().ConfigureAwait(true);
-            Log.Always("Resetting file copy queue");
-            await CopyFilesQueue.Reset().ConfigureAwait(true);
+            Log.Always("Resetting file copy queues");
+            for (int i = 0; i < opts.WorkerCount; i++)
+            {
+                Log.Always("Resetting file queue " + i);
+                await AzureServiceFactory.GetFileCopyQueue(i).Reset().ConfigureAwait(false);
+            }
             Log.Always("Resetting large file copy queue");
             await LargeFilesQueue.Reset().ConfigureAwait(true);
             for (int i = 0; i < opts.WorkerCount; i++)

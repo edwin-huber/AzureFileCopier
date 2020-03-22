@@ -21,7 +21,7 @@ namespace aafccore.work
     {
         private AzureQueueWorkItemMgmt azureFolderWorkItemMgmt;
         private readonly CloudStorageAccount cloudStorageAccount;
-        private readonly AzureQueueWorkItemMgmt azureFileWorkItemMgmt;
+        private AzureQueueWorkItemMgmt azureFileWorkItemMgmt;
         private readonly AzureQueueWorkItemMgmt azureLargeFileWorkItemMgmt;
         private readonly AzureFilesTargetStorage azureFilesTargetStorage;
         private readonly LocalFileStorage localFileStorage;
@@ -37,6 +37,9 @@ namespace aafccore.work
                 .Handle<Exception>()
                 .WaitAndRetryAsync(maxRetryAttempts, i => pauseBetweenFailures);
 
+        private readonly int originalWorkerId;
+        private int batchLength;
+        private int topLevelFoldersCount;
         /// <summary>
         /// Constructor initializes all neccessary objects used to control the copy job.
         /// </summary>
@@ -45,9 +48,9 @@ namespace aafccore.work
         internal CopyLocalStorageToAzureFiles(FolderOptions optsin, CloudStorageAccount cloudStorageAccountIn)
         {
             opts = optsin;
+            originalWorkerId = opts.WorkerId;
             // Folder WorkItem mgmt needs late init, as we don't need more queues than folders!
             cloudStorageAccount = cloudStorageAccountIn;
-            azureFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName, false);
             azureLargeFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.LargeFilesQueueName, true);
             azureFilesTargetStorage = new AzureFilesTargetStorage();
             localFileStorage = new LocalFileStorage(opts.ExcludeFolders.Split(',').ToList<string>(),opts.ExcludeFiles.Split(",").ToList<string>());
@@ -64,13 +67,55 @@ namespace aafccore.work
             // first enumerate top level and add to queue.
             // Need t
             SubmitBatchedTopLevelWorkitems();
+            await ProcessAllWork().ConfigureAwait(false);
+
+            // now go through other queues 
+            if (opts.WorkerCount > 1)
+            {
+                MoveWorkToNextQueue();
+                while (opts.WorkerId != originalWorkerId)
+                {
+                    await ProcessAllWork().ConfigureAwait(false);
+                    MoveWorkToNextQueue();
+                }
+            }
+        }
+
+        private void MoveWorkToNextQueue()
+        {
+            opts.WorkerId++;
+            if(opts.WorkerId >= opts.WorkerCount)
+            {
+                opts.WorkerId = 0;
+            }
+
+            int batchIndex = GetBatchStartingIndex(topLevelFoldersCount);
+            Log.Always("BATCH INDEX " + batchIndex);
+            Log.Always(FixedStrings.ProcessingQueue + batchIndex);
+            if (topLevelFoldersCount > opts.WorkerCount)
+            {
+                // We have more folders than workers, we assign queues based on ThreadId
+                azureFolderWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
+                azureFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+            }
+            else
+            {
+                // We have more workers than folders, we assign queues based on zero based folder index
+                azureFolderWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + batchIndex, false);
+                azureFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + batchIndex, false);
+            }
+        }
+
+        private async Task ProcessAllWork()
+        {
             // requires that we can connect to the folder work queue
             // Process folders queue until done
+            Log.Always("Processing Folder Work Queue");
             await ProcessWorkQueue(azureFolderWorkItemMgmt, false).ConfigureAwait(true);
-
+            Log.Always("Processing File Work Queue");
             // process files queue until done
             await ProcessWorkQueue(azureFileWorkItemMgmt, true).ConfigureAwait(true);
-
+            Log.Always("Processing LargeFile Work Queue");
             // process large files queue until done
             await ProcessWorkQueue(azureLargeFileWorkItemMgmt, true).ConfigureAwait(true);
         }
@@ -82,12 +127,28 @@ namespace aafccore.work
         private async void SubmitBatchedTopLevelWorkitems()
         {
             var topLevelFolders = localFileStorage.EnumerateFolders(opts.Path);
-            
+            topLevelFoldersCount = topLevelFolders.Count;
             topLevelFolders.Sort();
-            int batchIndex = GetBatchStartingIndex(topLevelFolders.Count);
-            topLevelFolders = topLevelFolders.GetRange(batchIndex, GetBatchLength(topLevelFolders.Count));
+            
+            batchLength = GetBatchLength(topLevelFoldersCount);
+            int batchIndex = GetBatchStartingIndex(topLevelFoldersCount);
+
+            topLevelFolders = topLevelFolders.GetRange(batchIndex, batchLength);
+
             Log.Always(FixedStrings.ProcessingQueue + batchIndex);
-            azureFolderWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + batchIndex, false);
+            if(topLevelFoldersCount > opts.WorkerCount)
+            {
+                // We have more folders than workers, we assign queues based on ThreadId
+                azureFolderWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
+                azureFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+            }
+            else
+            {
+                // We have more workers than folders, we assign queues based on zero based folder index
+                azureFolderWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + batchIndex, false);
+                azureFileWorkItemMgmt = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + batchIndex, false);
+            }
+
             foreach (var folder in topLevelFolders)
             {
                 WorkItem workitem = new WorkItem() { TargetPath = AdjustTargetFolderPath(folder), SourcePath = folder };
@@ -95,7 +156,7 @@ namespace aafccore.work
             }
 
             // we only want to copy the root files once
-            if (opts.BatchClient == 0)
+            if (opts.WorkerId == 0)
             {
                 await SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path), localFileStorage.EnumerateFiles(opts.Path)).ConfigureAwait(false);
             }
@@ -108,14 +169,7 @@ namespace aafccore.work
         /// <returns></returns>
         private int GetBatchStartingIndex(int totalFolders)
         {
-            if (opts.WorkerCount == 1)
-            {
-                return 0;
-            }
-
-            // need to use a fraction then convert back to integer index
-            float factor = (float) totalFolders / (float) opts.WorkerCount;
-            return (int) (factor * opts.BatchClient);
+            return (totalFolders / opts.WorkerCount) * opts.WorkerId;
         }
 
         /// <summary>
@@ -137,7 +191,7 @@ namespace aafccore.work
                 if (remainder > 0)
                 {
                     // our logic works off a zero based index for batch client numbering
-                    if (opts.BatchClient == opts.WorkerCount - 1)
+                    if (opts.WorkerId == opts.WorkerCount - 1)
                     {
                         // the last worker picks up any remainder
                         return (totalFolders / opts.WorkerCount) + remainder;
@@ -206,7 +260,7 @@ namespace aafccore.work
                         retryCount++;
                         // jittering the retry
                         Random rnd = new Random();
-                        int sleepTime = rnd.Next(3, 9) * 1000;
+                        int sleepTime = rnd.Next(1, 3) * 250;
                         Thread.Sleep(sleepTime);
                     }
                 }

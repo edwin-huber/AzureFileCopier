@@ -91,15 +91,16 @@ namespace aafccore.servicemgmt
             return CopyStructureStack(num).Value;
         }
 
-        private static readonly Lazy<AzureStorageQueue> CopyFilesQueue = new Lazy<AzureStorageQueue>(() =>
+        private static AzureStorageQueue CopyFilesQueue(int i)
         {
-            return ConnectToAzureStorageQueue(CloudObjectNameStrings.CopyFilesQueueName, false);
-        });
-
-        internal static AzureStorageQueue GetFileCopyQueue()
-        {
-            return CopyFilesQueue.Value;
+            return ConnectToAzureStorageQueue(CloudObjectNameStrings.CopyFilesQueueName + i, false);
         }
+
+        internal static AzureStorageQueue GetFileCopyQueue(int i)
+        {
+            return CopyFilesQueue(i);
+        }
+
         private static AzureStorageQueue CreateFoldersQueue()
         {
             return ConnectToAzureStorageQueue(CloudObjectNameStrings.CopyFolderQueueName, false);

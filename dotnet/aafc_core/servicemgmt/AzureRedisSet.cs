@@ -63,7 +63,8 @@ namespace aafccore.servicemgmt
         {
             return await retryPolicy.ExecuteAsync(async () =>
             {
-                return await db.SetAddAsync(SetKey, value).ConfigureAwait(true);
+                var hashedKey = Hasher.CreateHash(value);
+                return await db.SetAddAsync(SetKey, hashedKey).ConfigureAwait(true);
             }).ConfigureAwait(true);
         }
 
@@ -71,7 +72,8 @@ namespace aafccore.servicemgmt
         {
             return await retryPolicy.ExecuteAsync(async () =>
             {
-                return await db.SetContainsAsync(SetKey, value, CommandFlags.None).ConfigureAwait(true);
+                var hashedKey = Hasher.CreateHash(value);
+                return await db.SetContainsAsync(SetKey, hashedKey, CommandFlags.None).ConfigureAwait(true);
             }).ConfigureAwait(true);
         }
 
