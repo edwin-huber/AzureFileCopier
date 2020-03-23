@@ -4,6 +4,7 @@ Copy vast, complex and deep file directory structures to Azure Files, when AzCop
 This tool was written as a POC to determine if there are faster ways to copy particular folder structures and their contents to Azure than the current tooling allows for. 
 
 Current Version is written in dotnet core 3.1, and as such is **cross platform**, if you run into any problems, feel free to open an issue.  
+Current implentation suffers from contention of the subscribers to the Azure Storage Queue when there are a high number of subscribers (workers), which needs to be resolved by implementing a batched work item retrieval from the queues to reduce the number of calls each subscriber (queue client) makes to the work queue.
 
 ### NOTE: Use of this code is at your own risk, and no warranties are given. Alternatives such as AzCopy, Azure File Sync, and Azure DataBox exist to help migrate data to Azure, and may be a better choice for your scenario.  
 
