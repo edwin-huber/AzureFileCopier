@@ -28,9 +28,9 @@
         internal const string ArgsGivenText = "These are the app arguments you provided : ";
         internal const string AppFinished =
             "Not processing anything locally, there may be other workers and cloud data structures though!";
-        internal const string CopyingFileJson = "Copying File \" : \"";
-        internal const string TimeTakenJson = ",\"Time Taken \" : \"";
-        internal const string MsJson = ",\"Ms \" : \"";
+        internal const string CopyingFileJson = "Copying File\" : \"";
+        internal const string TimeTakenJson = ",\"Time Taken\" : \"";
+        internal const string MsJson = ",\"Ms\" : \"";
         internal const string GettingCloudRef = "Getting Cloud Ref to : ";
         internal const string TotalFolders = "Total Folders to Copy : ";
         internal const string BatchSize = "Batch size : ";
@@ -40,7 +40,7 @@
         internal const string ProcessingQueue = "Processing Queue ";
         internal const string PushingToStack = "Pushing onto stack : ";
         internal const string PushingToQueue = "Pushing onto queue : ";
-        internal const string RanOutOfQueueMessages = "\"QueueDone\" : \"Ran out of messages in the queue to process.\"";
+        internal const string RanOutOfQueueMessages = "QueueDone\" : \"Ran out of messages in the queue to process.";
         internal const string CreatingDirectory = "Creating directory : ";
         internal const string File = "File : ";
         internal const string LargeFile = "Large File : ";
@@ -119,5 +119,6 @@
         internal const string StartingFolderQueueLogJson = "QueueStart\" : \"Folder Work Queue";
         internal const string StartingLargeFileQueueLogJson = "QueueStart\" : \"Large File Work Queue";
         internal const string QueueBackOff = "Queue Control\" : \"unable to lock onto message, too much competition, retrying";
+        internal const string QueueEmptyMessageJson = "Queue Empty\" : \"Sleeping 10 Seconds before retry...";
     }
 }

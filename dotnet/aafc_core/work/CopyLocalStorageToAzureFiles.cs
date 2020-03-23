@@ -237,30 +237,33 @@ namespace aafccore.work
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        WorkItem workitem = await GetWork(workQueue).ConfigureAwait(false);
+                        List <WorkItem> workitems = await GetWork(workQueue).ConfigureAwait(false);
 
-                        if (workitem != null && workitem.Empty == false)
+                        foreach (var workitem in workitems)
                         {
-                            if (isFileQueue)
+                            if (workitem != null && workitem.Empty == false)
                             {
-                                azureFilesTargetStorage.CopyFile(workitem.SourcePath, workitem.TargetPath);
-                            }
-                            else
-                            {
-                                if (await FolderWasNotAlreadyCompleted(workitem).ConfigureAwait(false))
+                                if (isFileQueue)
                                 {
-                                    Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
-                                    if (!azureFilesTargetStorage.CreateFolder(workitem.TargetPath))
+                                    azureFilesTargetStorage.CopyFile(workitem.SourcePath, workitem.TargetPath);
+                                }
+                                else
+                                {
+                                    if (await FolderWasNotAlreadyCompleted(workitem).ConfigureAwait(false))
                                     {
-                                        Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
+                                        Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
+                                        if (!azureFilesTargetStorage.CreateFolder(workitem.TargetPath))
+                                        {
+                                            Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
+                                        }
+                                        await SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath)).ConfigureAwait(true);
+                                        await SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
+                                        await folderDoneSet.Add(workitem.SourcePath).ConfigureAwait(false);
                                     }
-                                    await SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath)).ConfigureAwait(true);
-                                    await SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
-                                    await folderDoneSet.Add(workitem.SourcePath).ConfigureAwait(false);
                                 }
                             }
-                            await workQueue.CompleteWork().ConfigureAwait(true);
                         }
+                        await workQueue.CompleteWork().ConfigureAwait(true);
                     }
                     else
                     {
@@ -290,7 +293,7 @@ namespace aafccore.work
             return !done;
         }
 
-        private async Task<WorkItem> GetWork(AzureQueueWorkItemMgmt workQueue)
+        private async Task<List<WorkItem>> GetWork(AzureQueueWorkItemMgmt workQueue)
         {
             return await retryPolicy.ExecuteAsync(async () =>
             {

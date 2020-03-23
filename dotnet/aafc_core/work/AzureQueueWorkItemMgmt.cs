@@ -3,6 +3,7 @@ using aafccore.util;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Queue;
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -15,7 +16,9 @@ namespace aafccore.work
     /// </summary>
     class AzureQueueWorkItemMgmt : IWorkItemMgmt
     {
-        private CloudQueueMessage CurrentQueueMessage { get; set; }
+        private List<CloudQueueMessage> CurrentQueueMessages { get; set; }
+        private List<WorkItem> CurrentWorkItems { get; set; }
+        private List<WorkItem> EmptyList = new List<WorkItem>();
         private readonly WorkItem Empty = new WorkItem() { Empty = true };
         private readonly AzureStorageQueue azureStorageQueue;
 
@@ -33,49 +36,61 @@ namespace aafccore.work
         public async Task<bool> CompleteWork()
         {
             bool succeeded = false;
-            try
+            if (CurrentQueueMessages != null && CurrentQueueMessages.Count > 0)
             {
-                await azureStorageQueue.DeleteMessage(CurrentQueueMessage).ConfigureAwait(true);
-                CurrentQueueMessage = null;
-                succeeded = true;
+                foreach (var message in CurrentQueueMessages)
+                {
+                    try
+                    {
+
+                        await azureStorageQueue.DeleteMessage(message).ConfigureAwait(true);
+
+                        succeeded = true;
+                    }
+                    catch (AggregateException ae)
+                    {
+                        Log.Always(ae.Message);
+                    }
+                    catch (StorageException se)
+                    {
+                        Log.Always(se.Message);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Always(e.Message);
+                        throw;
+                    }
+                }
             }
-            catch (AggregateException ae)
-            {
-                Log.Always(ae.Message);
-            }
-            catch (StorageException se)
-            {
-                Log.Always(se.Message);
-            }
-            catch (Exception e)
-            {
-                Log.Always(e.Message);
-                throw;
-            }
+            CurrentQueueMessages = null;
             return succeeded;
         }
 
-        public async Task<WorkItem> Fetch()
+        public async Task<List<WorkItem>> Fetch()
         {
             try
             {
-                if (CurrentQueueMessage == null)
+                if (CurrentQueueMessages == null)
                 {
-                    CurrentQueueMessage = await azureStorageQueue.DequeueSafe().ConfigureAwait(true);
+                    CurrentQueueMessages = await azureStorageQueue.DequeueSafe().ConfigureAwait(true);
                 }
             }
             catch (StorageException se)
             {
                 Log.Always(se.Message);
             }
-            if (CurrentQueueMessage != null)
+            if (CurrentQueueMessages != null)
             {
-                WorkItem workitem = JsonSerializer.Deserialize<WorkItem>(CurrentQueueMessage.AsString);
-                return workitem;
+                CurrentWorkItems = new List<WorkItem>();
+                foreach (var message in CurrentQueueMessages)
+                {
+                    CurrentWorkItems.Add(JsonSerializer.Deserialize<WorkItem>(message.AsString));    
+                }
+                return CurrentWorkItems;
             }
             else
             {
-                return Empty;
+                return new List<WorkItem>();
             }
         }
 

@@ -38,7 +38,7 @@
     },
     "copyfullRIBadresse": {
       "commandName": "Project",
-      "commandLineArgs": "copy -p I:\\RIB\\DaguArchiv\\ADRESSE\\0009 -w 64 --pathtoremove RIB"
+      "commandLineArgs": "copy -p I:\\RIB\\DaguArchiv\\ADRESSE\\0002 -w 32 --pathtoremove RIB"
     }
   }
 }

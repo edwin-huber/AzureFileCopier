@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Polly;
 using Polly.Retry;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,7 +17,7 @@ namespace aafccore.servicemgmt
         private CloudQueue queue;
         private readonly CloudStorageAccount storageAccount;
         private System.TimeSpan queueMessageHiddenTimeout;
-
+        private static readonly int numberOfMessagesToDequeue = Configuration.Config.GetValue<int>(ConfigStrings.NUMBER_OF_MESSAGES_TO_DEQUEUE);
         // Polly Retry Control
         private static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.MAX_RETRY);
         private static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
@@ -35,7 +36,8 @@ namespace aafccore.servicemgmt
             }
             else
             {
-                hiddenMessageTimeout = TimeSpan.FromSeconds(60);
+                var timeout = Configuration.Config.GetValue<Int32>(ConfigStrings.STANDARD_QUEUE_MESSAGE_TIMEOUT);
+                hiddenMessageTimeout = TimeSpan.FromSeconds(timeout);
             }
             CreateQueue(queueName, hiddenMessageTimeout);
         }
@@ -73,13 +75,13 @@ namespace aafccore.servicemgmt
         /// will retry dequeue operation 3 times before giving up 
         /// </summary>
         /// <returns></returns>
-        public async Task<CloudQueueMessage> DequeueSafe()
+        public async Task<List<CloudQueueMessage>> DequeueSafe()
         {
             return await retryPolicy.ExecuteAsync(async () =>
             {
                 bool dequeueing = true;
                 int retryCount = 0;
-                CloudQueueMessage message = null;
+                List<CloudQueueMessage> messages = null;
                 while (dequeueing)
                 {
                     var tempMessage = await queue.PeekMessageAsync().ConfigureAwait(true);
@@ -90,8 +92,8 @@ namespace aafccore.servicemgmt
                         Random rnd = new Random();
                         int sleepTime = (int)(rnd.NextDouble() * 500);
                         Thread.Sleep(sleepTime);
-                        message = await queue.GetMessageAsync(queueMessageHiddenTimeout, null, null).ConfigureAwait(true);
-                        if ((message == null || tempMessage == null) || (tempMessage.Id == message.Id))
+                        messages = (List <CloudQueueMessage>) await  queue.GetMessagesAsync(numberOfMessagesToDequeue, queueMessageHiddenTimeout, null, null).ConfigureAwait(true);
+                        if ((messages == null || tempMessage == null) ||(messages.Count > 0) && (tempMessage.Id == messages[0].Id))
                         {
                             dequeueing = false;
                         }
@@ -106,19 +108,19 @@ namespace aafccore.servicemgmt
                         if(retryCount < 5)
                         {
                             retryCount++;
-                            Log.Always("QUEUE EMPTY: sleeping 10 Seconds before retry...");
+                            Log.Always(FixedStrings.QueueEmptyMessageJson);
                             Thread.Sleep(10000);
                         }
                         else
                         {
-                            message = null;
+                            messages = null;
                             dequeueing = false;
                         }
                     }
 
                 }
 
-                return message;
+                return messages;
             }).ConfigureAwait(true);
         }
 
@@ -145,6 +147,39 @@ namespace aafccore.servicemgmt
                 }
             }).ConfigureAwait(true);
         }
+
+        /// <summary>
+        /// Removes messages from Azure Storage queue based on the message ID and Pop Receipt
+        /// Requires that the call has properly handled the Dequeuing of the message
+        /// Might be better to delete messages on completion, rather than batching complete operations.
+        /// </summary>
+        /// <param name="message"></param>
+        public async Task DeleteMessages(List<CloudQueueMessage> messages)
+        {
+
+            await retryPolicy.ExecuteAsync(async () =>
+            {
+                if (messages != null && messages.Count > 0)
+                {
+                    foreach (var message in messages)
+                    {
+                        try
+                        {
+                            await queue.DeleteMessageAsync(message.Id, message.PopReceipt).ConfigureAwait(true);
+                        }
+                        catch (AggregateException ae)
+                        {
+                            Log.Always(ae.Message);
+                        }
+                        catch (Exception dm)
+                        {
+                            Log.Always(dm.Message);
+                        }
+                    }
+                }
+            }).ConfigureAwait(true);
+        }
+
 
         public async Task Enqueue(string message)
         {
