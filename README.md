@@ -4,9 +4,9 @@ Copy vast, complex and deep file directory structures to Azure Files, when AzCop
 This tool was written as a POC to determine if there are faster ways to copy particular folder structures and their contents to Azure than the current tooling allows for. 
 
 Current Version is written in dotnet core 3.1, and as such is **cross platform**, if you run into any problems, feel free to open an issue.  
-Current implentation suffers from contention of the subscribers to the Azure Storage Queue when there are a high number of subscribers (workers), which needs to be resolved by implementing a batched work item retrieval from the queues to reduce the number of calls each subscriber (queue client) makes to the work queue.
+Azure Storage can suffer from contention of the subscribers to the Azure Storage Queue when there are a high number of subscribers (workers), this is resolved and can be tuned by modifying the batched work item retrieval from the queues to reduce the number of calls each subscriber (queue client) makes to the work queue.
 
-### NOTE: Use of this code is at your own risk, and no warranties are given. Alternatives such as AzCopy, Azure File Sync, and Azure DataBox exist to help migrate data to Azure, and may be a better choice for your scenario.  
+### NOTE: Use of this code is at your own risk, and no warranties are given. Alternatives such as [AzCopy](https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10), [Azure File Sync](https://docs.microsoft.com/en-us/azure/storage/files/storage-sync-files-deployment-guide), and [Azure DataBox](https://docs.microsoft.com/en-us/azure/databox-family/) exist to help migrate data to Azure, and may be a better choice for your scenario.  
 
 After copy job is finished, please remember to destroy the supporting control services,  [Azure Storage Account](https://azure.microsoft.com/en-us/services/storage/) and [Azure Cache for Redis](https://azure.microsoft.com/en-us/services/cache/).
 
