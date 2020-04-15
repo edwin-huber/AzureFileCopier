@@ -17,16 +17,17 @@ namespace aafccore.servicemgmt
     /// </summary>
     internal static class AzureServiceFactory
     {
-        private static CopierOptions options { get; set; }
+        private static int WorkerCount;
         private static readonly object locker = new object();
         private static CloudFileShare cfs;
-        internal static void Init(CopierOptions opts)
+
+        internal static void Init(int workerCount)
         {
 
             lock (locker)
             {
                 cfs = ConnectToFileStorage().GetShareReference(Configuration.Config.GetValue<string>(ConfigStrings.TargetAzureFilesShareName));
-                options = opts;
+                WorkerCount = workerCount;
             }
 
         }
@@ -51,7 +52,7 @@ namespace aafccore.servicemgmt
             return new Lazy<AzureRedisStack>(() =>
             {
                 string stackName = "";
-                if (options.WorkerCount > 1)
+                if (WorkerCount > 1)
                 {
                     stackName = CloudObjectNameStrings.copyStructureStackName + num + "s";
                 }

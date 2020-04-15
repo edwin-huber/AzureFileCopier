@@ -24,14 +24,15 @@ namespace aafccore
 
         private static int ParseArgsAndRun(string[] args)
         {
-            return Parser.Default.ParseArguments<FolderOptions, ResetOptions>(args)
+            return Parser.Default.ParseArguments<CopyLocalToAzureFilesOptions, CopyLocalToAzureBlobOptions, ResetOptions>(args)
                               .MapResult(
-                                (FolderOptions opts) => StartJobsOrWork(opts, args).Result,
-                                (ResetOptions opts) => ResetCopySupportingStructures(opts, args).Result,
+                                (CopyLocalToAzureFilesOptions opts) => StartJobsOrWork(opts, args).Result,
+                                (CopyLocalToAzureBlobOptions opts) => StartJobsOrWork(opts, args).Result,
+                                (ResetOptions opts) => ResetCopySupportingStructures(opts).Result,
                                 errs => 1);
         }
 
-        private async static Task<int> ResetCopySupportingStructures(ResetOptions opts, string[] args)
+        private async static Task<int> ResetCopySupportingStructures(ResetOptions opts)
         {
             Log.QuietMode = opts.QuietMode;
             Stopwatch sw = new Stopwatch();
@@ -45,23 +46,40 @@ namespace aafccore
             return 0;
         }
 
-        private async static Task<int> StartJobsOrWork(FolderOptions opts, string[] args)
+        private async static Task<int> StartJobsOrWork(ICopyOptions opts, string[] args)
         {
-            Log.QuietMode = opts.QuietMode;
+            Log.QuietMode = opts.Quiet();
             Stopwatch sw = new Stopwatch();
             sw.Start();
             try
             {
-                if (opts.BatchMode)
+
+                
+
+                if (opts.Batch())
                 {
-                    CopyLocalStorageToAzureFiles work = new CopyLocalStorageToAzureFiles(opts, AzureServiceFactory.ConnectToControlStorage());
-                    Log.Always("starting worker job");
-                    await work.Start().ConfigureAwait(false);
+                    switch (opts)
+                    {
+                        case CopyLocalToAzureFilesOptions f:
+                            CopyLocalStorageToAzureFiles filework = new CopyLocalStorageToAzureFiles(AzureServiceFactory.ConnectToControlStorage(), f);
+                            Log.Always("starting Copy Local to Azure Files worker job");
+                            await filework.Start().ConfigureAwait(false);
+                            break;
+                        case CopyLocalToAzureBlobOptions b:
+                            CopyLocalStorageToAzureBlob blobwork = new CopyLocalStorageToAzureBlob(AzureServiceFactory.ConnectToControlStorage(), b);
+                            Log.Always("starting Copy Local to Azure Blob worker job");
+                            await blobwork.Start().ConfigureAwait(false);
+                            break;
+                        default:
+                            throw new Exception("unknown copy type");
+                    }
+
+
                 }
                 else
                 {
 
-                    for (int jobNum = 0; jobNum < opts.WorkerCount; jobNum++)
+                    for (int jobNum = 0; jobNum < opts.Workers(); jobNum++)
                     {
                         try
                         {

@@ -3,8 +3,11 @@ using CommandLine;
 
 namespace aafccore.control
 {
-    public abstract class CopierOptions
+    public abstract class CopierOptions : ICopyOptions
     {
+        [Option('p', "path", Required = true, HelpText = "Path containing directory and files to be analyzed and copied to Azure.")]
+        public string Path { get; set; }
+
         // Omitting long name, defaults to name of property, ie "--verbose"
         [Option('q', "quietmode", Required = false,
           Default = false,
@@ -40,5 +43,26 @@ namespace aafccore.control
         Default = false,
         HelpText = "Will check all folder contents again, and not skip folders that have already been created")]
         public bool FullCheck { get; set; } = false;
+
+        [Option('x', "excludefolders", Required = false, HelpText = "Exclude a comma separated list of folder paths.")]
+        public string ExcludeFolders { get; set; } = "";
+
+        [Option("excludefiles", Required = false, HelpText = "Exclude a comma separated list of files.")]
+        public string ExcludeFiles { get; set; } = "";
+
+        public bool Quiet()
+        {
+            return QuietMode;
+        }
+
+        public int Workers()
+        {
+            return WorkerCount;
+        }
+
+        public bool Batch()
+        {
+            return BatchMode;
+        }
     }
 }

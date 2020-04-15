@@ -17,9 +17,9 @@ namespace aafccore.work
     class AzureQueueWorkItemMgmt : IWorkItemMgmt
     {
         private List<CloudQueueMessage> CurrentQueueMessages { get; set; }
+
         private List<WorkItem> CurrentWorkItems { get; set; }
-        private List<WorkItem> EmptyList = new List<WorkItem>();
-        private readonly WorkItem Empty = new WorkItem() { Empty = true };
+
         private readonly AzureStorageQueue azureStorageQueue;
 
         /// <summary>
@@ -38,12 +38,18 @@ namespace aafccore.work
             bool succeeded = false;
             if (CurrentQueueMessages != null && CurrentQueueMessages.Count > 0)
             {
-                foreach (var message in CurrentQueueMessages)
+                foreach (var workItemWithStatus in CurrentWorkItems)
                 {
                     try
                     {
+                        CloudQueueMessage queueMessageToComplete;
 
-                        await azureStorageQueue.DeleteMessage(message).ConfigureAwait(true);
+                        if (workItemWithStatus.Succeeded)
+                        {
+                            queueMessageToComplete = CurrentQueueMessages.Find(x => x.Id == workItemWithStatus.Id);
+                            await azureStorageQueue.DeleteMessage(queueMessageToComplete).ConfigureAwait(true);
+                        }
+
 
                         succeeded = true;
                     }
@@ -72,7 +78,12 @@ namespace aafccore.work
             {
                 if (CurrentQueueMessages == null)
                 {
-                    CurrentQueueMessages = await azureStorageQueue.DequeueSafe().ConfigureAwait(true);
+                    CurrentQueueMessages = new List<CloudQueueMessage>();
+                    var queueMessages = await azureStorageQueue.DequeueSafe().ConfigureAwait(true);
+                    foreach (var message in queueMessages)
+                    {
+                        CurrentQueueMessages.Add(message);
+                    }
                 }
             }
             catch (StorageException se)
@@ -82,9 +93,11 @@ namespace aafccore.work
             if (CurrentQueueMessages != null)
             {
                 CurrentWorkItems = new List<WorkItem>();
-                foreach (var message in CurrentQueueMessages)
+                foreach (var msg in CurrentQueueMessages)
                 {
-                    CurrentWorkItems.Add(JsonSerializer.Deserialize<WorkItem>(message.AsString));    
+                    WorkItem work = JsonSerializer.Deserialize<WorkItem>(msg.AsString);
+                    work.Id = msg.Id;
+                    CurrentWorkItems.Add(work);
                 }
                 return CurrentWorkItems;
             }

@@ -17,19 +17,21 @@ using System.Threading.Tasks;
 
 namespace aafccore.work
 {
-    internal class CopyLocalStorageToAzureFiles : LocalFileSystemSourceCopy
+    internal class CopyLocalStorageToAzureBlob : LocalFileSystemSourceCopy
     {
-        private readonly CopyLocalToAzureFilesOptions opts;
-        
+        private readonly AzureBlobTargetStorage azureBlobTargetStorage;
+
+        private readonly CopyLocalToAzureBlobOptions opts;
 
         /// <summary>
         /// Constructor initializes all neccessary objects used to control the copy job.
         /// </summary>
         /// <param name="optsin"></param>
         /// <param name="cloudStorageAccount"></param>
-        internal CopyLocalStorageToAzureFiles(CloudStorageAccount cloudStorageAccountIn, CopyLocalToAzureFilesOptions optsin) : base(cloudStorageAccountIn, optsin)
+        internal CopyLocalStorageToAzureBlob(CloudStorageAccount cloudStorageAccountIn, CopyLocalToAzureBlobOptions optsin) : base(cloudStorageAccountIn, optsin)
         {
             opts = optsin;
+            azureBlobTargetStorage = new AzureBlobTargetStorage();
         }
 
         /// <summary>
@@ -98,6 +100,8 @@ namespace aafccore.work
             await ProcessWorkQueue(largeFileCopyQueue, true).ConfigureAwait(true);
         }
 
+
+
         /// <summary>
         /// Processes work items from the Azure storage queues.
         /// Based on current logic, we have 3 queues per job:
@@ -130,20 +134,21 @@ namespace aafccore.work
                             {
                                 if (isFileQueue)
                                 {
-                                    azureFilesTargetStorage.CopyFile(workitem.SourcePath, workitem.TargetPath);
+                                    if(azureBlobTargetStorage.CopyFile(workitem.SourcePath, workitem.TargetPath))
+                                    {
+                                        workitem.Succeeded = true;
+                                    }
                                 }
                                 else
                                 {
+                                    // we do not create folders in blob storage, the folder names serve as file name prefix...
                                     if (await FolderWasNotAlreadyCompleted(workitem).ConfigureAwait(false))
                                     {
                                         Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
-                                        if (!azureFilesTargetStorage.CreateFolder(workitem.TargetPath))
-                                        {
-                                            Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
-                                        }
                                         await SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts).ConfigureAwait(true);
                                         await SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
                                         await folderDoneSet.Add(workitem.SourcePath).ConfigureAwait(false);
+                                        workitem.Succeeded = true;
                                     }
                                 }
                             }
@@ -171,7 +176,5 @@ namespace aafccore.work
             }
             Log.Always(FixedStrings.RanOutOfQueueMessages);
         }
-
-
     }
 }
