@@ -13,6 +13,7 @@
         internal const string NUMBER_OF_MESSAGES_TO_DEQUEUE = "NUMBER_OF_MESSAGES_TO_DEQUEUE";
         internal const string QUEUE_MAX_RETRY = "QUEUE_MAX_RETRY";
         internal const string RedisConnectionString = "RedisCacheConnectionString";
+        internal const string TargetAzureBlobContainerName = "TargetAzureBlobContainerName";
         internal const string TargetAzureFilesShareName = "TargetAzureFilesShareName";
         internal const string TargetStorageAccountName = "TargetStorageAccountName";
         internal const string TargetStorageConnectionString = "TargetStorageConnectionString";

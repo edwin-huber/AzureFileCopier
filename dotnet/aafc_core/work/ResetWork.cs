@@ -17,7 +17,7 @@ namespace aafccore.work
         public ResetWork(ResetOptions opts_in)
         {
             opts = opts_in;
-            AzureServiceFactory.Init(opts);
+            AzureServiceFactory.Init(opts.WorkerCount);
             folderDoneSet = AzureServiceFactory.GetFolderDoneSet();
             LargeFilesQueue = AzureServiceFactory.GetLargeFilesQueue();
         }
