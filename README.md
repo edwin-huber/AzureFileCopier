@@ -93,6 +93,11 @@ The name of the target storage account
 ```
 The access key for the target storage account.
 Access keys should be rolled over after they have been used in this fashion.
+  
+```json
+TargetAzureBlobContainerName
+```
+The target container name if copying to Azure Blob Storage.
 
 ## Usage
 
@@ -101,15 +106,28 @@ Access keys should be rolled over after they have been used in this fashion.
 ```--quietmode``` or ```-q```  
 Reduces messages sent to standard output.
 
-**COPY MODE:** 
+**COPY MODE: Local File System to Azure Files** 
 
 Analyzes the folder structure under the path given, and creates file and folder creation tasks in an Azure Storage queues.   
 Once all folders assigned to a particular have been created, worker jobs start to copy files from the file queues.
 
 Example Usage:
 ```script
-aafccore.exe copy -p E:\testing\testcontent4 -w 16 --pathtoremove testing --excludefolders E:\testing\testcontent4\2,E:\testing\testcontent4\1 --excludefiles office.jpg
+aafccore.exe localtofiles -p E:\testing\testcontent4 -w 16 --pathtoremove testing --excludefolders E:\testing\testcontent4\2,E:\testing\testcontent4\1 --excludefiles office.jpg
 ```
+
+**COPY MODE: Local File System to Azure Blob** 
+
+Analyzes the folder structure under the path given, and creates file and folder creation tasks in an Azure Storage queues.   
+Once all folders assigned to a particular have been created, worker jobs start to copy files from the file queues.
+
+Can be used to copy from Azure Files to Azure Blob by mounting Azure Files in a VM in the same region as the storage account, and transferring from there.
+
+Example Usage:
+```script
+aafccore.exe localtoblob -p E:\testing\testcontent4 -w 16 --pathtoremove testing --excludefolders E:\testing\testcontent4\2,E:\testing\testcontent4\1 --excludefiles office.jpg
+```
+
 
 ### Arguments
 
@@ -140,7 +158,7 @@ Will try to remove this prefix string from the path when copying to target share
 
 Example usage: 
 ```script
-aafccore.exe copy --destinationsubfolder mysub --pathtoremove "\Code\AzureAsyncFileCopier\testing\"
+aafccore.exe localtoblob --destinationsubfolder mysub --pathtoremove "\Code\AzureAsyncFileCopier\testing\"
 ```
 
 To target subfolders and remove prefix path:
@@ -153,7 +171,7 @@ Will try to remove this prefix string from the path when copying to target share
 
 Exmaple usage:  
 ```script
-aafccore.exe copy --destinationsubfolder mysub --pathtoremove "\Code\AzureAsyncFileCopier\testing\"
+aafccore.exe localtoblob --destinationsubfolder mysub --pathtoremove "\Code\AzureAsyncFileCopier\testing\"
 ```
 
 ```--largefiles``` or ```-l```  
