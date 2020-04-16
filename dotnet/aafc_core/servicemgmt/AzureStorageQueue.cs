@@ -19,7 +19,7 @@ namespace aafccore.servicemgmt
         private System.TimeSpan queueMessageHiddenTimeout;
         private static readonly int numberOfMessagesToDequeue = Configuration.Config.GetValue<int>(ConfigStrings.NUMBER_OF_MESSAGES_TO_DEQUEUE);
         // Polly Retry Control
-        private static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.MAX_RETRY);
+        private static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
         private static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
         private readonly AsyncRetryPolicy retryPolicy = Policy
                 .Handle<Exception>()
@@ -100,12 +100,13 @@ namespace aafccore.servicemgmt
                         else
                         {
                             Log.Always(FixedStrings.QueueBackOff);
+                            Thread.Sleep(sleepTime);
                         }
                     }
                     else
                     {
                         
-                        if(retryCount < 5)
+                        if(retryCount < maxRetryAttempts)
                         {
                             retryCount++;
                             Log.Always(FixedStrings.QueueEmptyMessageJson);
