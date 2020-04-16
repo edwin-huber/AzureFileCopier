@@ -30,7 +30,7 @@ namespace aafccore.work
         protected int topLevelFoldersCount;
 
         // Polly Retry Control
-        protected static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.MAX_RETRY);
+        protected static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
         protected static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
         protected readonly AsyncRetryPolicy retryPolicy = Policy
                 .Handle<Exception>()
