@@ -50,6 +50,12 @@ namespace aafccore.control
         [Option("excludefiles", Required = false, HelpText = "Exclude a comma separated list of files.")]
         public string ExcludeFiles { get; set; } = "";
 
+
+        [Option("fileonly", Required = false,
+        Default = false,
+        HelpText = FixedStrings.FileOnlyMode)]
+        public bool FileOnlyMode { get; set; } = false;
+
         public bool Quiet()
         {
             return QuietMode;

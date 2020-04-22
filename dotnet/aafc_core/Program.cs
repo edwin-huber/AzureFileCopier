@@ -107,7 +107,6 @@ namespace aafccore
         private static void StartNewProcessWithJob(string[] args, int jobNum)
         {
             List<string> argList = new List<string> { "--batchclient", jobNum.ToString(), "--batchmode", "true" };
-
             using Process job = new Process();
             job.StartInfo.UseShellExecute = true;
             job.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
@@ -115,6 +114,21 @@ namespace aafccore
             Log.Always("starting with " + job.StartInfo.Arguments);
             job.StartInfo.CreateNoWindow = false;
             job.Start();
+            if (Array.Exists(args, element => element == "localtoblob"))
+            {
+                // Start a file runner
+                argList.Add("--fileonly");
+                argList.Add("true");
+
+                using Process filerunnerJob = new Process();
+                filerunnerJob.StartInfo.UseShellExecute = true;
+                filerunnerJob.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
+                filerunnerJob.StartInfo.Arguments = AppendArgs(args, argList);
+                Log.Always("starting FILE RUNNER with " + filerunnerJob.StartInfo.Arguments);
+                filerunnerJob.StartInfo.CreateNoWindow = false;
+                filerunnerJob.Start();
+            }
+
         }
 
         private static string AppendArgs(string[] args, List<string> argList)

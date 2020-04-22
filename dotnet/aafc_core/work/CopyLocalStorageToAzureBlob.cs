@@ -17,10 +17,18 @@ using System.Threading.Tasks;
 
 namespace aafccore.work
 {
+    /// <summary>
+    /// The Azure Blob Target copy logic is a little different to the copy to Azure files, 
+    /// as Azure blobs have a flat structure, and only through the use of prefixes do we "simulate" folder structures
+    /// The creation of folders does not occur.
+    /// Especially for deep and complex folder structures, we found that the file copy process can take a long time
+    /// As such, the blob copy will use a "file queue runner concept", which will copy files only, whilst the standard
+    /// runners will loop through all queues.
+    /// </summary>
     internal class CopyLocalStorageToAzureBlob : LocalFileSystemSourceCopy
     {
         private readonly AzureBlobTargetStorage azureBlobTargetStorage;
-
+        private Random rnd = new Random();
         private readonly CopyLocalToAzureBlobOptions opts;
 
         /// <summary>
@@ -42,19 +50,45 @@ namespace aafccore.work
         internal async Task Start()
         {
             // first enumerate top level and add to queue.
-            // Need t
-            SubmitBatchedTopLevelWorkitems(opts);
-            await ProcessAllWork().ConfigureAwait(false);
 
-            // now go through other queues 
-            if (opts.WorkerCount > 1)
+            if (opts.FileOnlyMode)
             {
-                MoveWorkToNextQueue();
-                while (opts.WorkerId != originalWorkerId)
+                Log.Always("FILE_RUNNER_START");
+                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
+                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+                await StartFileRunner().ConfigureAwait(false);
+            }
+            else
+            {
+                SubmitBatchedTopLevelWorkitems(opts);
+                await ProcessAllWork().ConfigureAwait(false);
+
+                // now go through other queues 
+                if (opts.WorkerCount > 1)
                 {
-                    await ProcessAllWork().ConfigureAwait(false);
                     MoveWorkToNextQueue();
+                    while (opts.WorkerId != originalWorkerId)
+                    {
+                        await ProcessAllWork().ConfigureAwait(false);
+                        MoveWorkToNextQueue();
+                    }
                 }
+            }
+        }
+
+        internal async Task StartFileRunner()
+        {
+            while (true)
+            {
+                Log.Always(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId);
+                await ProcessWorkQueue(fileCopyQueue, true).ConfigureAwait(true);
+
+                Log.Always(FixedStrings.StartingLargeFileQueueLogJson);
+                await ProcessWorkQueue(largeFileCopyQueue, true).ConfigureAwait(true);
+
+                Log.Always("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
+                Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
+                MoveWorkToNextQueue();
             }
         }
 
@@ -159,6 +193,7 @@ namespace aafccore.work
                     {
                         retryCount++;
                         // jittering the retry
+                        Log.Always("Unable to pickup work, retrying");
                         Random rnd = new Random();
                         int sleepTime = rnd.Next(1, 3) * 250;
                         Thread.Sleep(sleepTime);

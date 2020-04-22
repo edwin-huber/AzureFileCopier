@@ -16,6 +16,7 @@
         internal const string QuestionMark = "?";
         internal const string Reverse = "reverse";
         internal const string QuietMode = "quietmode";
+        internal const string FileOnlyMode = "fileonlymode";
 
         // cmdline output
         internal const string AnalyzeModeActivatedText = "Starting directory analysis with folder : ";
