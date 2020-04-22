@@ -106,10 +106,18 @@ namespace aafccore.work
 
         protected async Task<bool> IsThereWork(AzureQueueWorkItemMgmt workQueue)
         {
-            return await retryPolicy.ExecuteAsync(async () =>
+            try
             {
-                return await workQueue.WorkAvailable().ConfigureAwait(true);
-            }).ConfigureAwait(false);
+                return await retryPolicy.ExecuteAsync(async () =>
+                {
+                    return await workQueue.WorkAvailable().ConfigureAwait(true);
+                }).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Log.Debug(e.Message);
+                return false;
+            }
         }
 
     }

@@ -139,7 +139,15 @@ namespace aafccore.work
         /// <returns></returns>
         public async Task<bool> WorkAvailable()
         {
-            var empty = await azureStorageQueue.IsEmpty().ConfigureAwait(false);
+            bool empty = true;
+            try
+            {
+                empty = await azureStorageQueue.IsEmpty().ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Log.Debug(e.Message);
+            }
             return !empty;
         }
     }
