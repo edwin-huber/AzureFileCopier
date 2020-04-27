@@ -150,5 +150,11 @@ namespace aafccore.work
             }
             return !empty;
         }
+
+        public async Task<int> GetApproxQueueSize()
+        {
+            return await azureStorageQueue.FetchApproxQueueSize().ConfigureAwait(false);
+        }
+
     }
 }

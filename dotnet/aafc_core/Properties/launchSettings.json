@@ -39,6 +39,10 @@
     "copyfullRIBadresse": {
       "commandName": "Project",
       "commandLineArgs": "copy -p I:\\RIB\\DaguArchiv\\ADRESSE\\0002 -w 32 --pathtoremove RIB"
+    },
+    "monitor": {
+      "commandName": "Project",
+      "commandLineArgs": "monitor -p E:\\testing\\testcontent4 -w 5 --pathtoremove testing\\testcontent4 --monitorinterval 10"
     }
   }
 }
