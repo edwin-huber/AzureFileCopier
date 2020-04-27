@@ -24,10 +24,11 @@ namespace aafccore
 
         private static int ParseArgsAndRun(string[] args)
         {
-            return Parser.Default.ParseArguments<CopyLocalToAzureFilesOptions, CopyLocalToAzureBlobOptions, ResetOptions>(args)
+            return Parser.Default.ParseArguments<CopyLocalToAzureFilesOptions, CopyLocalToAzureBlobOptions, MonitorOptions, ResetOptions>(args)
                               .MapResult(
                                 (CopyLocalToAzureFilesOptions opts) => StartJobsOrWork(opts, args).Result,
                                 (CopyLocalToAzureBlobOptions opts) => StartJobsOrWork(opts, args).Result,
+                                (MonitorOptions opts) => MonitorJob(opts, args).Result,
                                 (ResetOptions opts) => ResetCopySupportingStructures(opts).Result,
                                 errs => 1);
         }
@@ -43,6 +44,13 @@ namespace aafccore
             sw.Stop();
             Log.Always(FixedStrings.FinishedJob + (sw.ElapsedMilliseconds / 1000) + FixedStrings.Seconds);
             Console.ReadKey();
+            return 0;
+        }
+
+        private async static Task<int> MonitorJob(MonitorOptions opts, string[] args)
+        {
+            Monitor monitor = new Monitor(opts);
+            await monitor.Start().ConfigureAwait(true);
             return 0;
         }
 

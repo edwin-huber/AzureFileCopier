@@ -216,5 +216,11 @@ namespace aafccore.servicemgmt
         {
             await queue.ClearAsync().ConfigureAwait(true); //.DeleteIfExists();
         }
+
+        public async Task<int> FetchApproxQueueSize()
+        {
+            await queue.FetchAttributesAsync().ConfigureAwait(false);
+            return queue.ApproximateMessageCount ?? 0;
+        }
     }
 }
