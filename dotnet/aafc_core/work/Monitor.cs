@@ -21,20 +21,28 @@ namespace aafccore.work
         private readonly CloudStorageAccount cloudStorageAccount;
         private int UpdateInterval;
 
-        private readonly int FolderStatsRowOffset = 8;
+        private readonly int FolderStatsRowOffset = 12;
         private readonly int LargestFolderQueueStatsColOffset = 30;
         private readonly int LargestFolderQueueStatsRowOffset = 4;
         
-        private readonly int FileStatsRowOffset = 12;
+        private readonly int FileStatsRowOffset = 16;
         private readonly int LargestFileQueueStatsColOffset = 30;
         private readonly int LargestFileQueueStatsRowOffset = 5;
 
         private readonly int LargeFileStatsRowOffset = 6;
         private readonly int LargeFileStatsColOffset = 30;
 
+        private readonly int TotalFolderStatsRowOffset = 7;
+        private readonly int TotalFolderStatsColOffset = 30;
+
+        private readonly int TotalFileStatsRowOffset = 8;
+        private readonly int TotalFileStatsColOffset = 30;
+
         private int largestFileQueue = 0;
         private int largestFolderQueue = 0;
         private int largeFilesQueueLength = 0;
+        private int totalFolderMessages = 0;
+        private int totalFileMessages = 0;
 
         private string blanks = "                      ";
 
@@ -52,6 +60,11 @@ namespace aafccore.work
             cw.WriteAt("Largest Folder Queue Approx : ", 0, LargestFolderQueueStatsRowOffset);
             cw.WriteAt("Largest File Queue Approx : ", 0, LargestFileQueueStatsRowOffset);
             cw.WriteAt("Large File Queue Approx : ", 0, LargeFileStatsRowOffset);
+
+            cw.WriteAt("Total Folder Messages Approx : ", 0, TotalFolderStatsRowOffset);
+            cw.WriteAt("Total File Messages Approx : ", 0, TotalFileStatsRowOffset);
+
+            cw.WriteAt("Approx number of messages x 1000, more than 4000 displays \"S\")", 0, FolderStatsRowOffset - 2);
             cw.WriteAt("Folder Queues: (Approx Number of Messages in 1000s)", 0, FolderStatsRowOffset - 1);
             cw.WriteAt("File Queues: (Approx Number of Messages in 1000s)", 0, FileStatsRowOffset - 1);
 
@@ -61,6 +74,10 @@ namespace aafccore.work
                 // 2 options: 
                 // 1. maintain lists of all queue
                 // 2. loop through all queue dynamically
+                totalFolderMessages = 0;
+                totalFileMessages = 0;
+                UpdateLargeFileStats();
+
                 for (int i = 0; i < opts.WorkerCount; i++)
                 {
                     UpdateFolderStats(i);
@@ -74,11 +91,19 @@ namespace aafccore.work
                     cw.WriteAt(blanks, LargestFileQueueStatsColOffset, LargestFileQueueStatsRowOffset);
                     cw.WriteAt(largestFileQueue.ToString(), LargestFileQueueStatsColOffset, LargestFileQueueStatsRowOffset);
 
-                    UpdateLargeFileStats();
+                    
 
                     largestFileQueue = 0;
                     largestFolderQueue = 0;
                 }
+                
+                // update totals
+                cw.WriteAt(blanks, TotalFolderStatsColOffset, TotalFolderStatsRowOffset);
+                cw.WriteAt(totalFolderMessages.ToString(), TotalFolderStatsColOffset, TotalFolderStatsRowOffset);
+
+                // update file queues
+                cw.WriteAt(blanks, TotalFileStatsColOffset, TotalFileStatsRowOffset);
+                cw.WriteAt(totalFileMessages.ToString(), TotalFileStatsColOffset, TotalFileStatsRowOffset);
 
                 Thread.Sleep(UpdateInterval);
             }
@@ -90,6 +115,7 @@ namespace aafccore.work
         {
             var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
             var sizeFolderQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(false);
+            totalFolderMessages += sizeFolderQueue;
             if (sizeFolderQueue > largestFolderQueue)
             {
                 largestFolderQueue = sizeFolderQueue;
@@ -102,9 +128,10 @@ namespace aafccore.work
         {
             var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
             var sizeFileQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(false);
+            totalFileMessages += sizeFileQueue;
             if (sizeFileQueue > largestFileQueue)
             {
-                largestFolderQueue = sizeFileQueue;
+                largestFileQueue = sizeFileQueue;
             }
             string eval = EvalString(sizeFileQueue);
             cw.WriteAt(eval, Id, FileStatsRowOffset);
@@ -114,6 +141,7 @@ namespace aafccore.work
         {
             var largeFileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.LargeFilesQueueName, false);
             var sizeLargeFilesQueue = await GetQueueSize(largeFileCopyQueue).ConfigureAwait(false);
+            totalFileMessages += sizeLargeFilesQueue;
             if (sizeLargeFilesQueue > largeFilesQueueLength)
             {
                 largestFolderQueue = sizeLargeFilesQueue;
@@ -130,6 +158,10 @@ namespace aafccore.work
             if (sizeFolder == 0)
             {
                 eval = "0";
+            }
+            else if (sizeFolder < 1000)
+            {
+                eval = ".";
             }
             else if (sizeFolder < 2000)
             {
