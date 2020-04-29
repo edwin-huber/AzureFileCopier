@@ -30,7 +30,7 @@
     },
     "aafccore_16": {
       "commandName": "Project",
-      "commandLineArgs": "localtoblob -p E:\\testing\\testcontent4 -w 5 --pathtoremove testing\\testcontent4"
+      "commandLineArgs": "localtoblob -p I:\\RIB\\DaguArchiv\\ADRESSE\\0009 -w 64 --pathtoremove RIB\\DaguArchiv"
     },
     "copy_10": {
       "commandName": "Project",
@@ -42,7 +42,7 @@
     },
     "monitor": {
       "commandName": "Project",
-      "commandLineArgs": "monitor -p E:\\testing\\testcontent4 -w 5 --pathtoremove testing\\testcontent4 --monitorinterval 10"
+      "commandLineArgs": "monitor -p E:\\testing\\testcontent4 -w 64 --pathtoremove testing\\testcontent4 --monitorinterval 10"
     }
   }
 }
