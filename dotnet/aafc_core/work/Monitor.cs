@@ -90,11 +90,9 @@ namespace aafccore.work
                     // update file queues
                     cw.WriteAt(blanks, LargestFileQueueStatsColOffset, LargestFileQueueStatsRowOffset);
                     cw.WriteAt(largestFileQueue.ToString(), LargestFileQueueStatsColOffset, LargestFileQueueStatsRowOffset);
+                  
 
-                    
 
-                    largestFileQueue = 0;
-                    largestFolderQueue = 0;
                 }
                 
                 // update totals
@@ -104,7 +102,8 @@ namespace aafccore.work
                 // update file queues
                 cw.WriteAt(blanks, TotalFileStatsColOffset, TotalFileStatsRowOffset);
                 cw.WriteAt(totalFileMessages.ToString(), TotalFileStatsColOffset, TotalFileStatsRowOffset);
-
+                largestFileQueue = 0;
+                largestFolderQueue = 0;
                 Thread.Sleep(UpdateInterval);
             }
 
@@ -113,25 +112,31 @@ namespace aafccore.work
 
         private async void UpdateFolderStats(int Id)
         {
-            var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
-            var sizeFolderQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(false);
-            totalFolderMessages += sizeFolderQueue;
-            if (sizeFolderQueue > largestFolderQueue)
-            {
-                largestFolderQueue = sizeFolderQueue;
-            } 
+            var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + Id.ToString(), false);
+            var sizeFolderQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(true);
+            if (sizeFolderQueue > 0)
+            {                
+                totalFolderMessages += sizeFolderQueue;
+                if (sizeFolderQueue > largestFolderQueue)
+                {
+                    largestFolderQueue = sizeFolderQueue;
+                }
+            }
             string eval = EvalString(sizeFolderQueue);
             cw.WriteAt(eval, Id, FolderStatsRowOffset);
         }
 
         private async void UpdateFileStats(int Id)
         {
-            var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+            var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + Id.ToString(), false);
             var sizeFileQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(false);
-            totalFileMessages += sizeFileQueue;
-            if (sizeFileQueue > largestFileQueue)
+            if (sizeFileQueue > 0)
             {
-                largestFileQueue = sizeFileQueue;
+                totalFileMessages += sizeFileQueue;
+                if (sizeFileQueue > largestFileQueue)
+                {
+                    largestFileQueue = sizeFileQueue;
+                }
             }
             string eval = EvalString(sizeFileQueue);
             cw.WriteAt(eval, Id, FileStatsRowOffset);
@@ -141,41 +146,44 @@ namespace aafccore.work
         {
             var largeFileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.LargeFilesQueueName, false);
             var sizeLargeFilesQueue = await GetQueueSize(largeFileCopyQueue).ConfigureAwait(false);
-            totalFileMessages += sizeLargeFilesQueue;
-            if (sizeLargeFilesQueue > largeFilesQueueLength)
+            if (sizeLargeFilesQueue > 0)
             {
-                largestFolderQueue = sizeLargeFilesQueue;
+                totalFileMessages += sizeLargeFilesQueue;
+                if (sizeLargeFilesQueue > largeFilesQueueLength)
+                {
+                    largestFolderQueue = sizeLargeFilesQueue;
+                }
             }
             string eval = EvalString(sizeLargeFilesQueue);
             cw.WriteAt(blanks, LargeFileStatsColOffset, LargeFileStatsRowOffset);
             cw.WriteAt(eval, LargeFileStatsColOffset, LargeFileStatsRowOffset);
         }
 
-        private static string EvalString(int sizeFolder)
+        private static string EvalString(int sizeQueue)
         {
             string eval = "0";
 
-            if (sizeFolder == 0)
+            if (sizeQueue == 0 )
             {
                 eval = "0";
             }
-            else if (sizeFolder < 1000)
+            else if (sizeQueue < 1000)
             {
                 eval = ".";
             }
-            else if (sizeFolder < 2000)
+            else if (sizeQueue < 1500)
             {
                 eval = "1";
             }
-            else if (sizeFolder < 3000)
+            else if (sizeQueue < 2500)
             {
                 eval = "2";
             }
-            else if (sizeFolder < 4000)
+            else if (sizeQueue < 3500)
             {
                 eval = "3";
             }
-            else if (sizeFolder > 4000)
+            else if (sizeQueue > 4000)
             {
                 eval = "S";
             }

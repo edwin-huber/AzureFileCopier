@@ -42,7 +42,7 @@
     },
     "monitor": {
       "commandName": "Project",
-      "commandLineArgs": "monitor -p E:\\testing\\testcontent4 -w 64 --pathtoremove testing\\testcontent4 --monitorinterval 10"
+      "commandLineArgs": "monitor -p E:\\testing\\testcontent4 -w 80 --pathtoremove testing\\testcontent4 --monitorinterval 10"
     }
   }
 }
