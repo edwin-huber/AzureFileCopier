@@ -19,17 +19,16 @@ namespace aafccore.servicemgmt
     {
         private static int WorkerCount;
         private static readonly object locker = new object();
+        
         private static CloudFileShare cfs;
 
         internal static void Init(int workerCount)
         {
-
             lock (locker)
             {
                 cfs = ConnectToFileStorage().GetShareReference(Configuration.Config.GetValue<string>(ConfigStrings.TargetAzureFilesShareName));
                 WorkerCount = workerCount;
             }
-
         }
 
         private static readonly Lazy<CloudStorageAccount> ControlStorageAccount = new Lazy<CloudStorageAccount>(() =>
@@ -87,6 +86,11 @@ namespace aafccore.servicemgmt
             return FolderDoneSet.Value;
         }
 
+        /// <summary>
+        /// ToDo: Currently not using the stack, remove if we don't need it
+        /// </summary>
+        /// <param name="num"></param>
+        /// <returns></returns>
         internal static IStackInterface GetCopyStructureStack(int num)
         {
             return CopyStructureStack(num).Value;

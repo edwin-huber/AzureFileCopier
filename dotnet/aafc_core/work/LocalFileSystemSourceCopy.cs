@@ -17,14 +17,14 @@ namespace aafccore.work
     /// </summary>
     internal class LocalFileSystemSourceCopy : CopyJob
     {
-        internal readonly LocalFileStorage localFileStorage;
+        internal readonly ISourceStorage localFileStorage;
         internal readonly StringBuilder pathAdjuster = new StringBuilder(300);
         /// <summary>
         /// Constructor initializes all neccessary objects used to control the copy job.
         /// </summary>
         /// <param name="optsin"></param>
         /// <param name="cloudStorageAccount"></param>
-        internal LocalFileSystemSourceCopy(CloudStorageAccount cloudStorageAccountIn, CopierOptions optsin) : base(cloudStorageAccountIn, optsin)
+        internal LocalFileSystemSourceCopy(CopierOptions optsin) : base(optsin)
         {
             localFileStorage = new LocalFileStorage(optsin.ExcludeFolders.Split(',').ToList<string>(), optsin.ExcludeFiles.Split(",").ToList<string>());
 
@@ -124,15 +124,15 @@ namespace aafccore.work
             {
                 // We have more folders than workers, we assign queues based on Worker Id
                 Log.Always(FixedStrings.ProcessingQueue + opts.WorkerId);
-                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
-                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
+                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
             }
             else
             {
                 // We have more workers than folders, we assign queues based on zero based folder index
                 Log.Always(FixedStrings.ProcessingQueue + batchIndex);
-                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + batchIndex, false);
-                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + batchIndex, false);
+                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
+                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
             }
 
             foreach (var folder in topLevelFolders)

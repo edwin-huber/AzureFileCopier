@@ -17,19 +17,20 @@ using System.Threading.Tasks;
 
 namespace aafccore.work
 {
-    internal class CopyLocalStorageToAzureFiles : LocalFileSystemSourceCopy
+    internal class CopyLocalStorageToAzureFiles : LocalFileSystemSourceCopy, IWork
     {
         private readonly CopyLocalToAzureFilesOptions opts;
-        
+        private readonly ITargetStorage azureFilesTargetStorage;
 
         /// <summary>
         /// Constructor initializes all neccessary objects used to control the copy job.
         /// </summary>
         /// <param name="optsin"></param>
         /// <param name="cloudStorageAccount"></param>
-        internal CopyLocalStorageToAzureFiles(CloudStorageAccount cloudStorageAccountIn, CopyLocalToAzureFilesOptions optsin) : base(cloudStorageAccountIn, optsin)
+        internal CopyLocalStorageToAzureFiles(CopyLocalToAzureFilesOptions optsin) : base(optsin)
         {
             opts = optsin;
+            azureFilesTargetStorage = new AzureFilesTargetStorage();
         }
 
         /// <summary>
@@ -37,7 +38,7 @@ namespace aafccore.work
         /// If there are already messages in the folder queue, those will be processed first...
         /// </summary>
         /// <returns></returns>
-        internal async Task Start()
+        async Task IWork.StartAsync()
         {
             // first enumerate top level and add to queue.
             // Need t
@@ -70,14 +71,14 @@ namespace aafccore.work
             if (topLevelFoldersCount > opts.WorkerCount)
             {
                 // We have more folders than workers, we assign queues based on ThreadId
-                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
-                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
+                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
             }
             else
             {
                 // We have more workers than folders, we assign queues based on zero based folder index
-                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + batchIndex, false);
-                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + batchIndex, false);
+                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
+                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
             }
         }
 
@@ -109,7 +110,7 @@ namespace aafccore.work
         /// <param name="workQueue"></param>
         /// <param name="isFileQueue"></param>
         /// <returns></returns>
-        private async Task ProcessWorkQueue(AzureQueueWorkItemMgmt workQueue, bool isFileQueue)
+        private async Task ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue)
         {
             int retryCount = 0;
             try

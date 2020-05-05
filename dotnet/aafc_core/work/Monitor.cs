@@ -18,7 +18,7 @@ namespace aafccore.work
     internal class Monitor
     {
         private readonly ConsoleWriter cw = new ConsoleWriter(Console.CursorLeft, Console.CursorTop);
-        private readonly CloudStorageAccount cloudStorageAccount;
+
         private int UpdateInterval;
 
         private readonly int FolderStatsRowOffset = 12;
@@ -50,26 +50,24 @@ namespace aafccore.work
         internal Monitor(MonitorOptions options)
         {
             opts = options;
-            cloudStorageAccount = AzureServiceFactory.ConnectToControlStorage();
-            UpdateInterval = 1000 * opts.MonitorInterval;
+            
+            if (opts.MonitorInterval > 10)
+            {
+                UpdateInterval = 1000 * opts.MonitorInterval;
+            }
+            else
+            {
+                UpdateInterval = 10000;
+            }
         }
 
         internal Task Start()
         {
-            cw.WriteAt("Close window to stop monitor. Update Interval at " + UpdateInterval + " Seconds...", 0, 0);
-            cw.WriteAt("Largest Folder Queue Approx : ", 0, LargestFolderQueueStatsRowOffset);
-            cw.WriteAt("Largest File Queue Approx : ", 0, LargestFileQueueStatsRowOffset);
-            cw.WriteAt("Large File Queue Approx : ", 0, LargeFileStatsRowOffset);
+            CreateConsoleWindowHeaders();
 
-            cw.WriteAt("Total Folder Messages Approx : ", 0, TotalFolderStatsRowOffset);
-            cw.WriteAt("Total File Messages Approx : ", 0, TotalFileStatsRowOffset);
-
-            cw.WriteAt("Approx number of messages x 1000, more than 4000 displays \"S\")", 0, FolderStatsRowOffset - 2);
-            cw.WriteAt("Folder Queues: (Approx Number of Messages in 1000s)", 0, FolderStatsRowOffset - 1);
-            cw.WriteAt("File Queues: (Approx Number of Messages in 1000s)", 0, FileStatsRowOffset - 1);
-
-            // based on interval X - min 30 seconds
-            while (true) {
+            // loops based on interval - min 10 seconds
+            while (true)
+            {
                 // loop through all queues
                 // 2 options: 
                 // 1. maintain lists of all queue
@@ -90,11 +88,8 @@ namespace aafccore.work
                     // update file queues
                     cw.WriteAt(blanks, LargestFileQueueStatsColOffset, LargestFileQueueStatsRowOffset);
                     cw.WriteAt(largestFileQueue.ToString(), LargestFileQueueStatsColOffset, LargestFileQueueStatsRowOffset);
-                  
-
-
                 }
-                
+
                 // update totals
                 cw.WriteAt(blanks, TotalFolderStatsColOffset, TotalFolderStatsRowOffset);
                 cw.WriteAt(totalFolderMessages.ToString(), TotalFolderStatsColOffset, TotalFolderStatsRowOffset);
@@ -107,12 +102,27 @@ namespace aafccore.work
                 Thread.Sleep(UpdateInterval);
             }
 
-            
+
+        }
+
+        private void CreateConsoleWindowHeaders()
+        {
+            cw.WriteAt("Close window to stop monitor. Update Interval at " + UpdateInterval + " Seconds...", 0, 0);
+            cw.WriteAt("Largest Folder Queue Approx : ", 0, LargestFolderQueueStatsRowOffset);
+            cw.WriteAt("Largest File Queue Approx : ", 0, LargestFileQueueStatsRowOffset);
+            cw.WriteAt("Large File Queue Approx : ", 0, LargeFileStatsRowOffset);
+
+            cw.WriteAt("Total Folder Messages Approx : ", 0, TotalFolderStatsRowOffset);
+            cw.WriteAt("Total File Messages Approx : ", 0, TotalFileStatsRowOffset);
+
+            cw.WriteAt("Approx number of messages x 1000, more than 4000 displays \"S\")", 0, FolderStatsRowOffset - 2);
+            cw.WriteAt("Folder Queues: (Approx Number of Messages in 1000s)", 0, FolderStatsRowOffset - 1);
+            cw.WriteAt("File Queues: (Approx Number of Messages in 1000s)", 0, FileStatsRowOffset - 1);
         }
 
         private async void UpdateFolderStats(int Id)
         {
-            var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + Id.ToString(), false);
+            var folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + Id.ToString());
             var sizeFolderQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(true);
             if (sizeFolderQueue > 0)
             {                
@@ -128,7 +138,9 @@ namespace aafccore.work
 
         private async void UpdateFileStats(int Id)
         {
-            var folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + Id.ToString(), false);
+            // ToDo: we need to reduce the number of object creations... use an iterable collection to store all queues
+            // questions around efficiency and connection limits... ?
+            var folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + Id.ToString());
             var sizeFileQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(false);
             if (sizeFileQueue > 0)
             {
@@ -144,7 +156,7 @@ namespace aafccore.work
 
         private async void UpdateLargeFileStats()
         {
-            var largeFileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.LargeFilesQueueName, false);
+            var largeFileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.LargeFilesQueueName);
             var sizeLargeFilesQueue = await GetQueueSize(largeFileCopyQueue).ConfigureAwait(false);
             if (sizeLargeFilesQueue > 0)
             {
@@ -191,9 +203,9 @@ namespace aafccore.work
             return eval;
         }
 
-        private async Task<int> GetQueueSize(AzureQueueWorkItemMgmt azureStorageQueue)
+        private async Task<int> GetQueueSize(IWorkItemMgmt workItemSource)
         {
-            return await azureStorageQueue.GetApproxQueueSize().ConfigureAwait(false);
+            return await workItemSource.GetCountOfOutstandingWork().ConfigureAwait(false);
         }
     }
 }

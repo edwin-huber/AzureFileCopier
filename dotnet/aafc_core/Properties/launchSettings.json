@@ -30,7 +30,7 @@
     },
     "aafccore_16": {
       "commandName": "Project",
-      "commandLineArgs": "localtoblob -p I:\\RIB\\DaguArchiv\\ADRESSE\\0009 -w 64 --pathtoremove RIB\\DaguArchiv"
+      "commandLineArgs": "localtoblob -p I:\\RIB\\DaguArchiv\\ADRESSE\\0009 -w 6 --pathtoremove RIB\\DaguArchiv"
     },
     "copy_10": {
       "commandName": "Project",

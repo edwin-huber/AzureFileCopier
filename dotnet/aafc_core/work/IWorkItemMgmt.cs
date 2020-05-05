@@ -11,5 +11,7 @@ namespace aafccore.work
         Task<bool> Submit(WorkItem workitem);
 
         Task<bool> CompleteWork();
+
+        Task<int> GetCountOfOutstandingWork();
     }
 }
