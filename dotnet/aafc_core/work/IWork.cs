@@ -4,6 +4,6 @@ namespace aafccore.work
 {
     interface IWork
     {
-        Task Start();
+        public Task StartAsync();
     }
 }

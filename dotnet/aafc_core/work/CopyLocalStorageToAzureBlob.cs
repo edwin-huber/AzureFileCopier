@@ -25,7 +25,7 @@ namespace aafccore.work
     /// As such, the blob copy will use a "file queue runner concept", which will copy files only, whilst the standard
     /// runners will loop through all queues.
     /// </summary>
-    internal class CopyLocalStorageToAzureBlob : LocalFileSystemSourceCopy
+    internal class CopyLocalStorageToAzureBlob : LocalFileSystemSourceCopy, IWork
     {
         private readonly AzureBlobTargetStorage azureBlobTargetStorage;
         private Random rnd = new Random();
@@ -36,7 +36,7 @@ namespace aafccore.work
         /// </summary>
         /// <param name="optsin"></param>
         /// <param name="cloudStorageAccount"></param>
-        internal CopyLocalStorageToAzureBlob(CloudStorageAccount cloudStorageAccountIn, CopyLocalToAzureBlobOptions optsin) : base(cloudStorageAccountIn, optsin)
+        internal CopyLocalStorageToAzureBlob(CopyLocalToAzureBlobOptions optsin) : base(optsin)
         {
             opts = optsin;
             azureBlobTargetStorage = new AzureBlobTargetStorage();
@@ -47,15 +47,15 @@ namespace aafccore.work
         /// If there are already messages in the folder queue, those will be processed first...
         /// </summary>
         /// <returns></returns>
-        internal async Task Start()
+        async Task IWork.StartAsync()
         {
             // first enumerate top level and add to queue.
 
             if (opts.FileOnlyMode)
             {
                 Log.Always("FILE_RUNNER_START");
-                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
-                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
+                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
                 await StartFileRunner().ConfigureAwait(false);
             }
             else
@@ -106,14 +106,14 @@ namespace aafccore.work
             if (topLevelFoldersCount > opts.WorkerCount)
             {
                 // We have more folders than workers, we assign queues based on ThreadId
-                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId, false);
-                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId, false);
+                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
+                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
             }
             else
             {
                 // We have more workers than folders, we assign queues based on zero based folder index
-                folderCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFolderQueueName + batchIndex, false);
-                fileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.CopyFilesQueueName + batchIndex, false);
+                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
+                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
             }
         }
 
@@ -147,7 +147,7 @@ namespace aafccore.work
         /// <param name="workQueue"></param>
         /// <param name="isFileQueue"></param>
         /// <returns></returns>
-        private async Task ProcessWorkQueue(AzureQueueWorkItemMgmt workQueue, bool isFileQueue)
+        private async Task ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue)
         {
             int retryCount = 0;
             try

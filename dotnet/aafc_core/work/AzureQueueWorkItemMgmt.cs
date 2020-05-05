@@ -28,9 +28,9 @@ namespace aafccore.work
         /// <param name="account">CloudStorageAccount</param>
         /// <param name="queueName">Queue Name</param>
         /// <param name="largeFiles">Is this large file processing?</param>
-        internal AzureQueueWorkItemMgmt(CloudStorageAccount account, string queueName, bool largeFiles)
+        internal AzureQueueWorkItemMgmt(string queueName, bool largeFiles)
         {
-            azureStorageQueue = new AzureStorageQueue(account, queueName, largeFiles);
+            azureStorageQueue = AzureServiceFactory.ConnectToAzureStorageQueue(queueName, largeFiles);
         }
 
         public async Task<bool> CompleteWork()
@@ -151,7 +151,7 @@ namespace aafccore.work
             return !empty;
         }
 
-        public async Task<int> GetApproxQueueSize()
+        public async Task<int> GetCountOfOutstandingWork()
         {
             return await azureStorageQueue.FetchApproxQueueSize().ConfigureAwait(false);
         }

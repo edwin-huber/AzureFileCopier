@@ -16,11 +16,10 @@ namespace aafccore.work
 {
     internal class CopyJob
     {
-        protected AzureQueueWorkItemMgmt folderCopyQueue;
-        protected readonly CloudStorageAccount cloudStorageAccount;
-        protected AzureQueueWorkItemMgmt fileCopyQueue;
-        protected readonly AzureQueueWorkItemMgmt largeFileCopyQueue;
-        protected readonly AzureFilesTargetStorage azureFilesTargetStorage;
+        protected IWorkItemMgmt folderCopyQueue;
+        protected IWorkItemMgmt fileCopyQueue;
+        protected readonly IWorkItemMgmt largeFileCopyQueue;
+
         protected static ISetInterface folderDoneSet;
         protected readonly double largeFileSize = Configuration.Config.GetValue<double>(ConfigStrings.LARGE_FILE_SIZE_BYTES);
         protected readonly int MaxQueueRetry = Configuration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
@@ -36,12 +35,11 @@ namespace aafccore.work
                 .Handle<Exception>()
                 .WaitAndRetryAsync(maxRetryAttempts, i => pauseBetweenFailures);
 
-        protected CopyJob(CloudStorageAccount cloudStorageAccountIn, CopierOptions opts)
+        protected CopyJob(CopierOptions opts)
         {
             // Folder WorkItem mgmt needs late init, as we don't need more queues than folders!
-            cloudStorageAccount = cloudStorageAccountIn;
-            largeFileCopyQueue = new AzureQueueWorkItemMgmt(cloudStorageAccount, CloudObjectNameStrings.LargeFilesQueueName, true);
-            azureFilesTargetStorage = new AzureFilesTargetStorage();
+            largeFileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.LargeFilesQueueName);
+            
             folderDoneSet = AzureServiceFactory.GetFolderDoneSet();
             originalWorkerId = opts.WorkerId;
         }
@@ -96,7 +94,7 @@ namespace aafccore.work
             return !done;
         }
 
-        protected async Task<List<WorkItem>> GetWork(AzureQueueWorkItemMgmt workQueue)
+        protected async Task<List<WorkItem>> GetWork(IWorkItemMgmt workQueue)
         {
             return await retryPolicy.ExecuteAsync(async () =>
             {
@@ -104,7 +102,7 @@ namespace aafccore.work
             }).ConfigureAwait(false);
         }
 
-        protected async Task<bool> IsThereWork(AzureQueueWorkItemMgmt workQueue)
+        protected async Task<bool> IsThereWork(IWorkItemMgmt workQueue)
         {
             try
             {

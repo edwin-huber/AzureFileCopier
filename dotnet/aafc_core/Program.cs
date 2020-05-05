@@ -28,7 +28,7 @@ namespace aafccore
                               .MapResult(
                                 (CopyLocalToAzureFilesOptions opts) => StartJobsOrWork(opts, args).Result,
                                 (CopyLocalToAzureBlobOptions opts) => StartJobsOrWork(opts, args).Result,
-                                (MonitorOptions opts) => MonitorJob(opts, args).Result,
+                                (MonitorOptions opts) => MonitorJob(opts).Result,
                                 (ResetOptions opts) => ResetCopySupportingStructures(opts).Result,
                                 errs => 1);
         }
@@ -47,7 +47,7 @@ namespace aafccore
             return 0;
         }
 
-        private async static Task<int> MonitorJob(MonitorOptions opts, string[] args)
+        private async static Task<int> MonitorJob(MonitorOptions opts)
         {
             Monitor monitor = new Monitor(opts);
             await monitor.Start().ConfigureAwait(true);
@@ -61,22 +61,19 @@ namespace aafccore
             sw.Start();
             try
             {
-
-                
-
                 if (opts.Batch())
                 {
                     switch (opts)
                     {
                         case CopyLocalToAzureFilesOptions f:
-                            CopyLocalStorageToAzureFiles filework = new CopyLocalStorageToAzureFiles(AzureServiceFactory.ConnectToControlStorage(), f);
+                            IWork filework = new CopyLocalStorageToAzureFiles(f);
                             Log.Always("starting Copy Local to Azure Files worker job");
-                            await filework.Start().ConfigureAwait(false);
+                            await filework.StartAsync().ConfigureAwait(false);
                             break;
                         case CopyLocalToAzureBlobOptions b:
-                            CopyLocalStorageToAzureBlob blobwork = new CopyLocalStorageToAzureBlob(AzureServiceFactory.ConnectToControlStorage(), b);
+                            IWork blobwork = new CopyLocalStorageToAzureBlob(b);
                             Log.Always("starting Copy Local to Azure Blob worker job");
-                            await blobwork.Start().ConfigureAwait(false);
+                            await blobwork.StartAsync().ConfigureAwait(false);
                             break;
                         default:
                             throw new Exception("unknown copy type");
