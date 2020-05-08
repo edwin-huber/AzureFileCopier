@@ -58,82 +58,47 @@ namespace aafccore.work
                 fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
                 await StartFileRunner().ConfigureAwait(false);
             }
+            else if (opts.LargeFileOnlyMode)
+            {
+                Log.Always("LARGE_FILE_RUNNER_START");
+                await StartLargeFileRunner().ConfigureAwait(false);
+            }
             else
             {
-                SubmitBatchedTopLevelWorkitems(opts);
-                await ProcessAllWork().ConfigureAwait(false);
-
-                // now go through other queues 
-                if (opts.WorkerCount > 1)
+                if (!opts.Resume)
                 {
-                    MoveWorkToNextQueue();
-                    while (opts.WorkerId != originalWorkerId)
-                    {
-                        await ProcessAllWork().ConfigureAwait(false);
-                        MoveWorkToNextQueue();
-                    }
+                    SubmitBatchedTopLevelWorkitems(opts);
                 }
+                // ToDo: Add Job / Queue Id to log events
+                Log.Always(FixedStrings.StartingFolderQueueLogJson + "\":\"" + opts.WorkerId);
+                await ProcessWorkQueue(folderCopyQueue, false).ConfigureAwait(true);
+
             }
         }
 
-        internal async Task StartFileRunner()
+        private async Task StartFileRunner()
         {
             while (true)
             {
                 Log.Always(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId);
                 await ProcessWorkQueue(fileCopyQueue, true).ConfigureAwait(true);
 
+                Log.Always("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
+                Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
+            }
+        }
+
+        private async Task StartLargeFileRunner()
+        {
+            while (true)
+            {
                 Log.Always(FixedStrings.StartingLargeFileQueueLogJson);
                 await ProcessWorkQueue(largeFileCopyQueue, true).ConfigureAwait(true);
 
-                Log.Always("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
+                Log.Always("Large File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
                 Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
-                MoveWorkToNextQueue();
             }
         }
-
-        private void MoveWorkToNextQueue()
-        {
-            opts.WorkerId++;
-            if(opts.WorkerId >= opts.WorkerCount)
-            {
-                opts.WorkerId = 0;
-            }
-
-            int batchIndex = GetBatchStartingIndex(topLevelFoldersCount, opts);
-            Log.Always("BATCH INDEX " + batchIndex);
-            Log.Always(FixedStrings.ProcessingQueue + batchIndex);
-            if (topLevelFoldersCount > opts.WorkerCount)
-            {
-                // We have more folders than workers, we assign queues based on ThreadId
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-            }
-            else
-            {
-                // We have more workers than folders, we assign queues based on zero based folder index
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
-            }
-        }
-
-        /// <summary>
-        /// Processes work based on workitems found in the queues
-        /// </summary>
-        /// <returns></returns>
-        private async Task ProcessAllWork()
-        {
-            // ToDo: Add Job / Queue Id to log events
-            Log.Always(FixedStrings.StartingFolderQueueLogJson);
-            await ProcessWorkQueue(folderCopyQueue, false).ConfigureAwait(true);
-            
-            Log.Always(FixedStrings.StartingFileQueueLogJson);
-            await ProcessWorkQueue(fileCopyQueue, true).ConfigureAwait(true);
-
-            Log.Always(FixedStrings.StartingLargeFileQueueLogJson);
-            await ProcessWorkQueue(largeFileCopyQueue, true).ConfigureAwait(true);
-        }
-
 
 
         /// <summary>
@@ -191,11 +156,17 @@ namespace aafccore.work
                     }
                     else
                     {
-                        retryCount++;
+                        if (!isFileQueue)
+                        {
+                            // only folder queues should run out of work to do
+                            // file queues might need to sleep for work to appear
+                            retryCount++;
+                            Thread.Sleep(60000); // Folder queues sleep 60 seconds in case failed objects need to reappear...
+                        }
                         // jittering the retry
-                        Log.Always("Unable to pickup work, retrying");
+                        Log.Always("Unable to find work, retrying in a moment...");
                         Random rnd = new Random();
-                        int sleepTime = rnd.Next(1, 3) * 250;
+                        int sleepTime = rnd.Next(1, 3) * 10000;
                         Thread.Sleep(sleepTime);
                     }
                 }

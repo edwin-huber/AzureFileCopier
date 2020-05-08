@@ -42,7 +42,15 @@
     },
     "monitor": {
       "commandName": "Project",
-      "commandLineArgs": "monitor -p E:\\testing\\testcontent4 -w 80 --pathtoremove testing\\testcontent4 --monitorinterval 10"
+      "commandLineArgs": "monitor -p E:\\testing\\testcontent4 -w 6 --pathtoremove testing\\testcontent4 --monitorinterval 10"
+    },
+    "testcontent4": {
+      "commandName": "Project",
+      "commandLineArgs": "localtoblob -p E:\\testing\\testcontent4 -w 6 --pathtoremove testing\\testcontent4"
+    },
+    "testcontent4 0": {
+      "commandName": "Project",
+      "commandLineArgs": " localtoblob -p E:\\testing\\testcontent4 -w 6 --pathtoremove testing\\testcontent4 --batchclient 5 --batchmode true"
     }
   }
 }

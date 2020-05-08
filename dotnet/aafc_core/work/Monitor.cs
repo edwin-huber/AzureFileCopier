@@ -43,6 +43,7 @@ namespace aafccore.work
         private int largeFilesQueueLength = 0;
         private int totalFolderMessages = 0;
         private int totalFileMessages = 0;
+        private int CurrentStattColumnOffset = 0;
 
         private string blanks = "                      ";
 
@@ -72,8 +73,10 @@ namespace aafccore.work
                 // 2 options: 
                 // 1. maintain lists of all queue
                 // 2. loop through all queue dynamically
+                cw.WriteAt(blanks + blanks + blanks, 0, FileStatsRowOffset);
                 totalFolderMessages = 0;
                 totalFileMessages = 0;
+                CurrentStattColumnOffset = 0;
                 UpdateLargeFileStats();
 
                 for (int i = 0; i < opts.WorkerCount; i++)
@@ -152,6 +155,9 @@ namespace aafccore.work
             }
             string eval = EvalString(sizeFileQueue);
             cw.WriteAt(eval, Id, FileStatsRowOffset);
+            // ToDo: Work out a way to implement a more accurate display using the below...
+            //cw.WriteAt(sizeFileQueue.ToString(), Id + CurrentStattColumnOffset, FileStatsRowOffset);
+            //CurrentStattColumnOffset += sizeFileQueue.ToString().Length + 1;
         }
 
         private async void UpdateLargeFileStats()

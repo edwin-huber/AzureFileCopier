@@ -50,11 +50,27 @@ namespace aafccore.control
         [Option("excludefiles", Required = false, HelpText = "Exclude a comma separated list of files.")]
         public string ExcludeFiles { get; set; } = "";
 
-
         [Option("fileonly", Required = false,
         Default = false,
         HelpText = FixedStrings.FileOnlyMode)]
         public bool FileOnlyMode { get; set; } = false;
+
+        [Option("largefileonly", Required = false,
+        Default = false,
+        HelpText = FixedStrings.LargeFileOnlyModeHelpText)]
+        public bool LargeFileOnlyMode { get; set; } = false;
+
+        [Option("resume", Required = false,
+        Default = false,
+        HelpText = FixedStrings.ResumeModeHelpText)]
+        public bool Resume { get; set; } = false;
+
+        [Option("filerunnerperfolderqueue",
+        Default = 2,
+        Required = false,
+        HelpText = "The number of file runners to start per folder queue, maxed out usually at 4, better is more worker queues in general")]
+        public int FileRunnerPerFolderQueue { get; set; } = 2;
+
 
         public bool Quiet()
         {
@@ -69,6 +85,11 @@ namespace aafccore.control
         public bool Batch()
         {
             return BatchMode;
+        }
+
+        public int NumFileRunnersPerQueue()
+        {
+            return FileRunnerPerFolderQueue;
         }
     }
 }

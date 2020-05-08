@@ -10,5 +10,10 @@ namespace aafccore.work
         {
            return new AzureQueueWorkItemMgmt(name, false);
         }
+
+        public static IWorkItemController CreateAzureWorkItemSubmissionController(int workerCount, int workerId)
+        {
+            return new AzureWorkItemSubmissionController(workerCount, workerId);
+        }
     }
 }

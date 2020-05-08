@@ -78,6 +78,7 @@
             "Use these to tune your copier performance / throughput. Do not reduce the large file copy timeout, otherwise the " +
             "copier will just get stuck on large files and keep retrying them!";
         internal const string LargeFileCopyModeCommandExampleText = "Exmaple usage: \nazureasynccopier.exe largefile";
+        internal const string LargeFileOnlyModeHelpText = "Only copies work items found in the large file queue";
         internal const string AdvancedModeHelpText =
             "ADVANCED MODE: Same as ANALYZE mode, but uses batches, can be used to parallelize the analysis of complex " +
             "folder structures. Work is split based on the number of batches, and the running process is assigned a batch " +
@@ -108,6 +109,9 @@
 
         internal const string DestinationSubFolderHelpText =
             "Provide a subfolder path to copy to which is a sub folder of the destination / target";
+
+        internal const string ResumeModeHelpText = 
+            "Resumes processing work items from queues only, does not start by submitting the top level folders in the path to the queues again";
 
         internal const string SourcePathFileCopyModeHelpText =
             "If you do not want the full root path of the file structure to be copied to the target share, " +

@@ -14,11 +14,16 @@ using System.Threading.Tasks;
 
 namespace aafccore.work
 {
+    /// <summary>
+    /// Currently tightly coupled to Azure workitem mgmt and controllers.
+    /// Needs refactoring.
+    /// </summary>
     internal class CopyJob
     {
         protected IWorkItemMgmt folderCopyQueue;
         protected IWorkItemMgmt fileCopyQueue;
         protected readonly IWorkItemMgmt largeFileCopyQueue;
+        protected readonly IWorkItemController WorkItemSubmissionController;
 
         protected static ISetInterface folderDoneSet;
         protected readonly double largeFileSize = Configuration.Config.GetValue<double>(ConfigStrings.LARGE_FILE_SIZE_BYTES);
@@ -39,7 +44,7 @@ namespace aafccore.work
         {
             // Folder WorkItem mgmt needs late init, as we don't need more queues than folders!
             largeFileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.LargeFilesQueueName);
-            
+            WorkItemSubmissionController =  WorkItemMgmtFactory.CreateAzureWorkItemSubmissionController(opts.WorkerCount, opts.WorkerId);
             folderDoneSet = AzureServiceFactory.GetFolderDoneSet();
             originalWorkerId = opts.WorkerId;
         }
