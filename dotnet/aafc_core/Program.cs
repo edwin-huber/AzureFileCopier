@@ -56,7 +56,9 @@ namespace aafccore
 
         private async static Task<int> StartJobsOrWork(ICopyOptions opts, string[] args)
         {
+
             Log.QuietMode = opts.Quiet();
+            
             Stopwatch sw = new Stopwatch();
             sw.Start();
             try
@@ -89,7 +91,7 @@ namespace aafccore
                         try
                         {
                             Log.Always("starting worker " + jobNum);
-                            StartNewProcessWithJob(args, jobNum);
+                            StartNewProcessWithJob(args, jobNum, opts.NumFileRunnersPerQueue());
                         }
                         catch (Exception e)
                         {
@@ -109,7 +111,7 @@ namespace aafccore
             return 0;
         }
 
-        private static void StartNewProcessWithJob(string[] args, int jobNum)
+        private static void StartNewProcessWithJob(string[] args, int jobNum, int fileRunners)
         {
             List<string> argList = new List<string> { "--batchclient", jobNum.ToString(), "--batchmode", "true" };
             using Process job = new Process();
@@ -130,6 +132,27 @@ namespace aafccore
                 filerunnerJob.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
                 filerunnerJob.StartInfo.Arguments = AppendArgs(args, argList);
                 Log.Always("starting FILE RUNNER with " + filerunnerJob.StartInfo.Arguments);
+                filerunnerJob.StartInfo.CreateNoWindow = false;
+
+                for (int i = 0; i < fileRunners; i++)
+                {
+                    filerunnerJob.Start();
+                }
+            }
+
+            if (jobNum == 0 && !Array.Exists(args, element => element == "--largefileonly"))
+            {
+                argList.RemoveAt(argList.Count - 1);
+                argList.Remove("--fileonly");
+                // Start a file runner
+                argList.Add("--largefileonly");
+                argList.Add("true");
+
+                using Process filerunnerJob = new Process();
+                filerunnerJob.StartInfo.UseShellExecute = true;
+                filerunnerJob.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
+                filerunnerJob.StartInfo.Arguments = AppendArgs(args, argList);
+                Log.Always("starting LARGE FILE RUNNER with " + filerunnerJob.StartInfo.Arguments);
                 filerunnerJob.StartInfo.CreateNoWindow = false;
                 filerunnerJob.Start();
             }

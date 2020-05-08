@@ -19,6 +19,7 @@ namespace aafccore.work
     {
         internal readonly ISourceStorage localFileStorage;
         internal readonly StringBuilder pathAdjuster = new StringBuilder(300);
+        
         /// <summary>
         /// Constructor initializes all neccessary objects used to control the copy job.
         /// </summary>
@@ -42,7 +43,7 @@ namespace aafccore.work
                 if (opts.FullCheck || (!await folderDoneSet.IsMember(folder).ConfigureAwait(false)))
                 {
                     WorkItem workitem = new WorkItem() { TargetPath = AdjustTargetFolderPath(folder, opts), SourcePath = folder };
-                    await folderCopyQueue.Submit(workitem).ConfigureAwait(true);
+                    await WorkItemSubmissionController.SubmitFolder(workitem).ConfigureAwait(true);
                 }
             }
         }
@@ -96,11 +97,11 @@ namespace aafccore.work
                 long length = new System.IO.FileInfo(file).Length;
                 if (length > largeFileSize)
                 {
-                    await largeFileCopyQueue.Submit(workitem).ConfigureAwait(true);
+                    await WorkItemSubmissionController.SubmitLargeFile(workitem).ConfigureAwait(true);
                 }
                 else
                 {
-                    await fileCopyQueue.Submit(workitem).ConfigureAwait(true);
+                    await WorkItemSubmissionController.SubmitFile(workitem).ConfigureAwait(true);
                 }
             }
         }
@@ -135,16 +136,19 @@ namespace aafccore.work
                 fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
             }
 
-            foreach (var folder in topLevelFolders)
+            if (!opts.Resume)
             {
-                WorkItem workitem = new WorkItem() { TargetPath = AdjustTargetFolderPath(folder, opts), SourcePath = folder };
-                await folderCopyQueue.Submit(workitem).ConfigureAwait(true);
-            }
+                foreach (var folder in topLevelFolders)
+                {
+                    WorkItem workitem = new WorkItem() { TargetPath = AdjustTargetFolderPath(folder, opts), SourcePath = folder };
+                    await WorkItemSubmissionController.SubmitFolder(workitem).ConfigureAwait(true);
+                }
 
-            // we only want to copy the root files once
-            if (opts.WorkerId == 0)
-            {
-                await SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path)).ConfigureAwait(false);
+                // we only want to copy the root files once
+                if (opts.WorkerId == 0)
+                {
+                    await SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path)).ConfigureAwait(false);
+                }
             }
         }
 

@@ -12,7 +12,9 @@ namespace aafccore.work
     /// <summary>
     /// This is not a threadsafe implementation
     /// Assumption is that each worker will work as a distinct process and rely on OS process scheduling
-    /// for thread mgmt
+    /// for thread mgmt.
+    /// New implementation uses a distribution of work across several queues
+    /// Each worker only pulls work from a single queue, but distributes work across several queues.
     /// </summary>
     class AzureQueueWorkItemMgmt : IWorkItemMgmt
     {
