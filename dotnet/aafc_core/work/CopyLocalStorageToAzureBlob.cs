@@ -146,9 +146,12 @@ namespace aafccore.work
                                         Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
                                         await SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts).ConfigureAwait(true);
                                         await SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
-                                        await folderDoneSet.Add(workitem.SourcePath).ConfigureAwait(false);
-                                        workitem.Succeeded = true;
                                     }
+
+                                    // Folder was done or already done
+                                    // We don't want this message hanging around the queue... as they are annoying the sysadmin...
+                                    await folderDoneSet.Add(workitem.SourcePath).ConfigureAwait(false);
+                                    workitem.Succeeded = true;
                                 }
                             }
                         }
