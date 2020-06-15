@@ -25,6 +25,22 @@ For more information on these cloud services, please see:
 2. Create an Azure Redis Cache, for most purposes a Basic C2 cache with 2,5 GB should be sufficient.
 3. You will need the connection strings for the target storage account, the name of the target share, the connection string for the control storage account, and the redis cache, and will need to place these in the ```appsettings.json```. 
 
+#### Hosting the copy runtime
+
+To copy Azure Files to Azure Blob storage, please use a VM running in the same region as your storage accounts.  
+Copy performance will be very dependent on the latency to the target storage accounts, as well as the latency of the storage account providing the Azure Storage queue for job control.
+
+For datacenter to Azure copy tasks, please ensure separate storage accounts for control and target storage.
+
+![datacenter](./images/DatacenterCopyToAzure.JPG)
+
+When copying from Azure Files to Azure Blob, mount the Azure Files storage in an Azure VM, and run the job in the same region as the Azure storage.  
+Currently there is no direct Azure Files to Azure Blob implemented, and jobs need to use a VM with a mount point.  
+Performance will vary based on the VM type chosen, the number of cores and number of storage queues chosen.
+
+![azuretoazure](./images/AzureToAzureCopy.JPG)
+
+
 ## Compilation
 
 **Use Visual Studio 2019!**
