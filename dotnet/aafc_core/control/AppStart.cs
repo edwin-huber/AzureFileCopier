@@ -1,13 +1,9 @@
-﻿using aafccore.control;
-using aafccore.resources;
-using aafccore.servicemgmt;
+﻿using aafccore.resources;
 using aafccore.util;
 using aafccore.work;
 using CommandLine;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace aafccore.control
@@ -79,7 +75,6 @@ namespace aafccore.control
                             throw new Exception("unknown copy type");
                     }
 
-
                 }
                 else
                 {
@@ -89,7 +84,7 @@ namespace aafccore.control
                         try
                         {
                             Log.Always("starting worker " + jobNum);
-                            StartNewProcessWithJob(args, jobNum, opts.NumFileRunnersPerQueue());
+                            ProcessStarter.StartNewProcessWithJob(args, jobNum, opts.NumFileRunnersPerQueue());
                         }
                         catch (Exception e)
                         {
@@ -112,75 +107,8 @@ namespace aafccore.control
 
         private static void StartMonitor(int queues)
         {
-            using Process job = new Process();
-            job.StartInfo.UseShellExecute = true;
-            job.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
-            job.StartInfo.Arguments = "monitor -p monitor -w " + queues.ToString();
-            Log.Always("starting with " + job.StartInfo.Arguments);
-            job.StartInfo.CreateNoWindow = false;
-            job.Start();
+            ProcessStarter.StartMonitorProcess(queues);
         }
-
-        private static void StartNewProcessWithJob(string[] args, int jobNum, int fileRunners)
-        {
-            List<string> argList = new List<string> { "--batchclient", jobNum.ToString(), "--batchmode", "true" };
-            using Process job = new Process();
-            job.StartInfo.UseShellExecute = true;
-            job.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
-            job.StartInfo.Arguments = AppendArgs(args, argList);
-            Log.Always("starting with " + job.StartInfo.Arguments);
-            job.StartInfo.CreateNoWindow = false;
-            job.Start();
-            if (Array.Exists(args, element => element == "localtoblob"))
-            {
-                // Start a file runner
-                argList.Add("--fileonly");
-                argList.Add("true");
-
-                using Process filerunnerJob = new Process();
-                filerunnerJob.StartInfo.UseShellExecute = true;
-                filerunnerJob.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
-                filerunnerJob.StartInfo.Arguments = AppendArgs(args, argList);
-                Log.Always("starting FILE RUNNER with " + filerunnerJob.StartInfo.Arguments);
-                filerunnerJob.StartInfo.CreateNoWindow = false;
-
-                for (int i = 0; i < fileRunners; i++)
-                {
-                    filerunnerJob.Start();
-                }
-            }
-
-            if (jobNum == 0 && !Array.Exists(args, element => element == "--largefileonly"))
-            {
-                argList.RemoveAt(argList.Count - 1);
-                argList.Remove("--fileonly");
-                // Start a file runner
-                argList.Add("--largefileonly");
-                argList.Add("true");
-
-                using Process filerunnerJob = new Process();
-                filerunnerJob.StartInfo.UseShellExecute = true;
-                filerunnerJob.StartInfo.FileName = Process.GetCurrentProcess().ProcessName;
-                filerunnerJob.StartInfo.Arguments = AppendArgs(args, argList);
-                Log.Always("starting LARGE FILE RUNNER with " + filerunnerJob.StartInfo.Arguments);
-                filerunnerJob.StartInfo.CreateNoWindow = false;
-                filerunnerJob.Start();
-            }
-
-        }
-
-        private static string AppendArgs(string[] args, List<string> argList)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (string arg in args)
-            {
-                sb.Append(" " + arg);
-            }
-            foreach (var newarg in argList)
-            {
-                sb.Append(" " + newarg);
-            }
-            return sb.ToString();
-        }
+        
     }
 }
