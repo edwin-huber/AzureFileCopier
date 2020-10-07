@@ -9,5 +9,6 @@ namespace aafccore.storagemodel
 
         List<string> FolderExclusionList { get; set; }
         List<string> FileExclusionList { get; set; }
+
     }
 }

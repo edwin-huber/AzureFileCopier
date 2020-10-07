@@ -6,7 +6,7 @@
     },
     "reset": {
       "commandName": "Project",
-      "commandLineArgs": "reset -w 128"
+      "commandLineArgs": "reset -w 4"
     },
     "copy1": {
       "commandName": "Project",
@@ -46,11 +46,19 @@
     },
     "testcontent4": {
       "commandName": "Project",
-      "commandLineArgs": "localtoblob -p E:\\testing\\testcontent4 -w 6 --pathtoremove testing\\testcontent4"
+      "commandLineArgs": "localtoblob -p z:\\testing\\testcontent -w 6 --pathtoremove testing\\testcontent"
     },
     "testcontent4 0": {
       "commandName": "Project",
       "commandLineArgs": " localtoblob -p E:\\testing\\testcontent4 -w 6 --pathtoremove testing\\testcontent4 --batchclient 5 --batchmode true"
+    },
+    "bernd1": {
+      "commandName": "Project",
+      "commandLineArgs": "localtoblob -p z:\\testing\\testcontent -w 1 --pathtoremove testing\\testcontent --resume"
+    },
+    "bernd4": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -m blob -p z:\\testing\\testcontent -w 4 --pathtoremove testing\\testcontent"
     }
   }
 }

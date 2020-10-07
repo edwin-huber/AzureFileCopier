@@ -1,8 +1,12 @@
 ﻿using aafccore.control;
 using aafccore.resources;
+using aafccore.servicemgmt;
 using aafccore.storagemodel;
 using aafccore.util;
 using Microsoft.Azure.Storage;
+using Microsoft.Extensions.Configuration;
+using Polly;
+using Polly.Retry;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,45 +19,76 @@ namespace aafccore.work
     /// <summary>
     /// Class providing access to local file system as copy source
     /// </summary>
-    internal class LocalFileSystemSourceCopy : CopyJob
+    internal class LocalFileSystemSourceCopy
     {
         internal readonly ISourceStorage localFileStorage;
         internal readonly StringBuilder pathAdjuster = new StringBuilder(300);
         
+        protected WorkManager workManager;
+
+
+        protected readonly int originalWorkerId;
+        protected int batchLength;
+        protected int topLevelFoldersCount;
+
+
         /// <summary>
         /// Constructor initializes all neccessary objects used to control the copy job.
         /// </summary>
         /// <param name="optsin"></param>
         /// <param name="cloudStorageAccount"></param>
-        internal LocalFileSystemSourceCopy(CopierOptions optsin) : base(optsin)
+        internal LocalFileSystemSourceCopy(CopierOptions optsin) 
         {
-            localFileStorage = new LocalFileStorage(optsin.ExcludeFolders.Split(',').ToList<string>(), optsin.ExcludeFiles.Split(",").ToList<string>());
+            workManager = new WorkManager(optsin);
 
+
+            originalWorkerId = optsin.WorkerId;
+            localFileStorage = new LocalFileStorage(optsin.ExcludeFolders.Split(',').ToList<string>(), optsin.ExcludeFiles.Split(",").ToList<string>());
         }
 
+
+
+
+
+
+
         /// <summary>
-        /// Submits folder work items to the azure storage queue
+        /// Needed when starting the job to only submit folders which will be processed 
+        /// by the associated folder queue
         /// </summary>
-        /// <param name="folders"></param>
-        /// <returns></returns>
-        protected async Task SubmitFolderWorkitems(List<string> folders, CopierOptions opts)
+        protected async void PrepareBatchedProcessingAndQueues(CopierOptions opts)
         {
-            foreach (var folder in folders)
+            var topLevelFolders = localFileStorage.EnumerateFolders(opts.Path);
+            topLevelFoldersCount = topLevelFolders.Count;
+            topLevelFolders.Sort();
+
+            batchLength = workManager.GetBatchLength(topLevelFoldersCount, opts);
+            int batchIndex = workManager.GetBatchStartingIndex(topLevelFoldersCount, opts);
+
+            topLevelFolders = topLevelFolders.GetRange(batchIndex, batchLength);
+
+            workManager.CreateWorkerQueuesForBatchProcessing(opts, topLevelFoldersCount, batchIndex);
+
+            if (!opts.Resume)
             {
-                if (opts.FullCheck || (!await folderDoneSet.IsMember(folder).ConfigureAwait(false)))
+                await workManager.SubmitFolderWorkitems(topLevelFolders, opts, this.AdjustTargetFolderPath).ConfigureAwait(false);
+
+                // we only want to copy the root files once
+                if (opts.WorkerId == 0)
                 {
-                    WorkItem workitem = new WorkItem() { TargetPath = AdjustTargetFolderPath(folder, opts), SourcePath = folder };
-                    await WorkItemSubmissionController.SubmitFolder(workitem).ConfigureAwait(true);
+                    await workManager.SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path)).ConfigureAwait(false);
                 }
             }
         }
+
+
 
         /// <summary>
         /// Adjusts the target folder path to the correct form, removing and inserting as necessary
         /// </summary>
         /// <param name="folder"></param>
         /// <returns></returns>
-        protected string AdjustTargetFolderPath(string folder, CopierOptions opts)
+        internal string AdjustTargetFolderPath(string folder, CopierOptions opts)
         {
             pathAdjuster.Clear();
             if (!string.IsNullOrEmpty(opts.DestinationSubFolder))
@@ -81,76 +116,5 @@ namespace aafccore.work
 
             return pathAdjuster.ToString().TrimStart('/');
         }
-
-        /// <summary>
-        /// Submits files to Azure Storage queues, based on file size
-        /// </summary>
-        /// <param name="targetPath"></param>
-        /// <param name="files"></param>
-        /// <returns></returns>
-        protected async Task SubmitFileWorkItems(string targetPath, List<string> files)
-        {
-            foreach (var file in files)
-            {
-                Log.Debug(FixedStrings.File + file);
-                WorkItem workitem = new WorkItem() { TargetPath = targetPath, SourcePath = file };
-                long length = new System.IO.FileInfo(file).Length;
-                if (length > largeFileSize)
-                {
-                    await WorkItemSubmissionController.SubmitLargeFile(workitem).ConfigureAwait(true);
-                }
-                else
-                {
-                    await WorkItemSubmissionController.SubmitFile(workitem).ConfigureAwait(true);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Needed when starting the job to only submit folders which will be processed 
-        /// by the associated folder queue
-        /// </summary>
-        protected async void SubmitBatchedTopLevelWorkitems(CopierOptions opts)
-        {
-            var topLevelFolders = localFileStorage.EnumerateFolders(opts.Path);
-            topLevelFoldersCount = topLevelFolders.Count;
-            topLevelFolders.Sort();
-
-            batchLength = GetBatchLength(topLevelFoldersCount, opts);
-            int batchIndex = GetBatchStartingIndex(topLevelFoldersCount, opts);
-
-            topLevelFolders = topLevelFolders.GetRange(batchIndex, batchLength);
-
-            if (topLevelFoldersCount > opts.WorkerCount)
-            {
-                // We have more folders than workers, we assign queues based on Worker Id
-                Log.Always(FixedStrings.ProcessingQueue + opts.WorkerId);
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-            }
-            else
-            {
-                // We have more workers than folders, we assign queues based on zero based folder index
-                Log.Always(FixedStrings.ProcessingQueue + batchIndex);
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
-            }
-
-            if (!opts.Resume)
-            {
-                foreach (var folder in topLevelFolders)
-                {
-                    WorkItem workitem = new WorkItem() { TargetPath = AdjustTargetFolderPath(folder, opts), SourcePath = folder };
-                    await WorkItemSubmissionController.SubmitFolder(workitem).ConfigureAwait(true);
-                }
-
-                // we only want to copy the root files once
-                if (opts.WorkerId == 0)
-                {
-                    await SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path)).ConfigureAwait(false);
-                }
-            }
-        }
-
     }
 }

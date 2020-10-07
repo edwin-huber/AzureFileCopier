@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,15 +29,15 @@ namespace aafccore.work
     internal class CopyLocalStorageToAzureBlob : LocalFileSystemSourceCopy, IWork
     {
         private readonly AzureBlobTargetStorage azureBlobTargetStorage;
-        private Random rnd = new Random();
-        private readonly CopyLocalToAzureBlobOptions opts;
+
+        private readonly CopierOptions opts;
 
         /// <summary>
         /// Constructor initializes all neccessary objects used to control the copy job.
         /// </summary>
         /// <param name="optsin"></param>
         /// <param name="cloudStorageAccount"></param>
-        internal CopyLocalStorageToAzureBlob(CopyLocalToAzureBlobOptions optsin) : base(optsin)
+        internal CopyLocalStorageToAzureBlob(CopierOptions optsin) : base(optsin)
         {
             opts = optsin;
             azureBlobTargetStorage = new AzureBlobTargetStorage();
@@ -47,59 +48,42 @@ namespace aafccore.work
         /// If there are already messages in the folder queue, those will be processed first...
         /// </summary>
         /// <returns></returns>
-        async Task IWork.StartAsync()
+        async void IWork.StartAsync()
         {
             // first enumerate top level and add to queue.
 
             if (opts.FileOnlyMode)
             {
                 Log.Always("FILE_RUNNER_START");
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-                await StartFileRunner().ConfigureAwait(false);
+                
+                base.workManager.fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
+                await base.workManager.StartFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
             }
             else if (opts.LargeFileOnlyMode)
             {
                 Log.Always("LARGE_FILE_RUNNER_START");
-                await StartLargeFileRunner().ConfigureAwait(false);
+                await base.workManager.StartLargeFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
             }
             else
             {
+                base.workManager.folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
                 if (!opts.Resume)
                 {
-                    SubmitBatchedTopLevelWorkitems(opts);
+                    PrepareBatchedProcessingAndQueues(opts);
                 }
                 // ToDo: Add Job / Queue Id to log events
                 Log.Always(FixedStrings.StartingFolderQueueLogJson + "\":\"" + opts.WorkerId);
-                await ProcessWorkQueue(folderCopyQueue, false).ConfigureAwait(true);
+                await base.workManager.ProcessWorkQueue(base.workManager.folderCopyQueue, false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(true);
 
             }
         }
 
-        private async Task StartFileRunner()
+        // No folders in Blob storage
+        public static bool BlobCreateFolderStub(string path)
         {
-            while (true)
-            {
-                Log.Always(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId);
-                await ProcessWorkQueue(fileCopyQueue, true).ConfigureAwait(true);
-
-                Log.Always("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
-                Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
-            }
+            return true;
         }
-
-        private async Task StartLargeFileRunner()
-        {
-            while (true)
-            {
-                Log.Always(FixedStrings.StartingLargeFileQueueLogJson);
-                await ProcessWorkQueue(largeFileCopyQueue, true).ConfigureAwait(true);
-
-                Log.Always("Large File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
-                Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
-            }
-        }
-
+        
 
         /// <summary>
         /// Processes work items from the Azure storage queues.
@@ -118,14 +102,14 @@ namespace aafccore.work
             try
             {
                 // we loop through several times, in case there are other workers still submitting stuff...
-                while (retryCount < MaxQueueRetry)
+                while (retryCount < base.workManager.MaxQueueRetry)
                 {
-                    bool thereIsWork = await IsThereWork(workQueue).ConfigureAwait(false);
+                    bool thereIsWork = await base.workManager.IsThereWork(workQueue).ConfigureAwait(false);
 
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        List <WorkItem> workitems = await GetWork(workQueue).ConfigureAwait(false);
+                        List <WorkItem> workitems = await base.workManager.GetWork(workQueue).ConfigureAwait(false);
 
                         foreach (var workitem in workitems)
                         {
@@ -141,16 +125,16 @@ namespace aafccore.work
                                 else
                                 {
                                     // we do not create folders in blob storage, the folder names serve as file name prefix...
-                                    if (await FolderWasNotAlreadyCompleted(workitem).ConfigureAwait(false))
+                                    if (await base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
                                     {
                                         Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
-                                        await SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts).ConfigureAwait(true);
-                                        await SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
+                                        await base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath).ConfigureAwait(true);
+                                        await base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
                                     }
 
                                     // Folder was done or already done
                                     // We don't want this message hanging around the queue... as they are annoying the sysadmin...
-                                    await folderDoneSet.Add(workitem.SourcePath).ConfigureAwait(false);
+                                    await base.workManager.FinishedProcessingFolder(workitem.SourcePath).ConfigureAwait(false);
                                     workitem.Succeeded = true;
                                 }
                             }
@@ -167,7 +151,7 @@ namespace aafccore.work
                             Thread.Sleep(60000); // Folder queues sleep 60 seconds in case failed objects need to reappear...
                         }
                         // jittering the retry
-                        Log.Always("Unable to find work, retrying in a moment...");
+                        Log.Always("Unable to find work, retrying in a moment... if all queues are empty, press any key to exit");
                         Random rnd = new Random();
                         int sleepTime = rnd.Next(1, 3) * 10000;
                         Thread.Sleep(sleepTime);

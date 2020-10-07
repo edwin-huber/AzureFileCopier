@@ -19,7 +19,7 @@ namespace aafccore.work
 {
     internal class CopyLocalStorageToAzureFiles : LocalFileSystemSourceCopy, IWork
     {
-        private readonly CopyLocalToAzureFilesOptions opts;
+        private readonly CopierOptions opts;
         private readonly ITargetStorage azureFilesTargetStorage;
 
         /// <summary>
@@ -27,7 +27,7 @@ namespace aafccore.work
         /// </summary>
         /// <param name="optsin"></param>
         /// <param name="cloudStorageAccount"></param>
-        internal CopyLocalStorageToAzureFiles(CopyLocalToAzureFilesOptions optsin) : base(optsin)
+        internal CopyLocalStorageToAzureFiles(CopierOptions optsin) : base(optsin)
         {
             opts = optsin;
             azureFilesTargetStorage = new AzureFilesTargetStorage();
@@ -38,49 +38,26 @@ namespace aafccore.work
         /// If there are already messages in the folder queue, those will be processed first...
         /// </summary>
         /// <returns></returns>
-        async Task IWork.StartAsync()
+        async void IWork.StartAsync()
         {
             // first enumerate top level and add to queue.
             // Need t
-            SubmitBatchedTopLevelWorkitems(opts);
+            PrepareBatchedProcessingAndQueues(opts);
             await ProcessAllWork().ConfigureAwait(false);
 
             // now go through other queues 
             if (opts.WorkerCount > 1)
             {
-                MoveWorkToNextQueue();
+                base.workManager.MoveWorkToNextQueue(base.topLevelFoldersCount);
                 while (opts.WorkerId != originalWorkerId)
                 {
                     await ProcessAllWork().ConfigureAwait(false);
-                    MoveWorkToNextQueue();
+                    base.workManager.MoveWorkToNextQueue(base.topLevelFoldersCount);
                 }
             }
         }
 
-        private void MoveWorkToNextQueue()
-        {
-            opts.WorkerId++;
-            if(opts.WorkerId >= opts.WorkerCount)
-            {
-                opts.WorkerId = 0;
-            }
-
-            int batchIndex = GetBatchStartingIndex(topLevelFoldersCount, opts);
-            Log.Always("BATCH INDEX " + batchIndex);
-            Log.Always(FixedStrings.ProcessingQueue + batchIndex);
-            if (topLevelFoldersCount > opts.WorkerCount)
-            {
-                // We have more folders than workers, we assign queues based on ThreadId
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-            }
-            else
-            {
-                // We have more workers than folders, we assign queues based on zero based folder index
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
-            }
-        }
+ 
 
         /// <summary>
         /// Processes work based on workitems found in the queues
@@ -90,13 +67,13 @@ namespace aafccore.work
         {
             // ToDo: Add Job / Queue Id to log events
             Log.Always(FixedStrings.StartingFolderQueueLogJson);
-            await ProcessWorkQueue(folderCopyQueue, false).ConfigureAwait(true);
+            await ProcessWorkQueue(base.workManager.folderCopyQueue, false).ConfigureAwait(true);
             
             Log.Always(FixedStrings.StartingFileQueueLogJson);
-            await ProcessWorkQueue(fileCopyQueue, true).ConfigureAwait(true);
+            await ProcessWorkQueue(base.workManager.fileCopyQueue, true).ConfigureAwait(true);
 
             Log.Always(FixedStrings.StartingLargeFileQueueLogJson);
-            await ProcessWorkQueue(largeFileCopyQueue, true).ConfigureAwait(true);
+            await ProcessWorkQueue(base.workManager.largeFileCopyQueue, true).ConfigureAwait(true);
         }
 
         /// <summary>
@@ -110,20 +87,21 @@ namespace aafccore.work
         /// <param name="workQueue"></param>
         /// <param name="isFileQueue"></param>
         /// <returns></returns>
+        /// // ToDo: Move this as strategy to WorkManager, pass Target storage copy function in as delegate
         private async Task ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue)
         {
             int retryCount = 0;
             try
             {
                 // we loop through several times, in case there are other workers still submitting stuff...
-                while (retryCount < MaxQueueRetry)
+                while (retryCount < base.workManager.MaxQueueRetry)
                 {
-                    bool thereIsWork = await IsThereWork(workQueue).ConfigureAwait(false);
+                    bool thereIsWork = await base.workManager.IsThereWork(workQueue).ConfigureAwait(false);
 
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        List <WorkItem> workitems = await GetWork(workQueue).ConfigureAwait(false);
+                        List <WorkItem> workitems = await base.workManager.GetWork(workQueue).ConfigureAwait(false);
 
                         foreach (var workitem in workitems)
                         {
@@ -135,16 +113,16 @@ namespace aafccore.work
                                 }
                                 else
                                 {
-                                    if (await FolderWasNotAlreadyCompleted(workitem).ConfigureAwait(false))
+                                    if (await base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
                                     {
                                         Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
                                         if (!azureFilesTargetStorage.CreateFolder(workitem.TargetPath))
                                         {
                                             Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
                                         }
-                                        await SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts).ConfigureAwait(true);
-                                        await SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
-                                        await folderDoneSet.Add(workitem.SourcePath).ConfigureAwait(false);
+                                        await base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath).ConfigureAwait(true);
+                                        await base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
+                                        await base.workManager.FinishedProcessingFolder(workitem.SourcePath).ConfigureAwait(false);
                                     }
                                 }
                             }

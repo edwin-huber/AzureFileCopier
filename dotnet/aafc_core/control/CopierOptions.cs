@@ -1,12 +1,25 @@
 ﻿using aafccore.resources;
 using CommandLine;
+using Newtonsoft.Json;
+using System;
 
 namespace aafccore.control
 {
-    public abstract class CopierOptions : ICopyOptions
+    public enum CopyMode
+    {
+        blob,
+        file
+    }
+
+    // ToDo: New help text here
+    [Verb("copy", HelpText = "<need new help text here>")]
+    public class CopierOptions : ICopyOptions
     {
         [Option('p', "path", Required = true, HelpText = "Path containing directory and files to be analyzed and copied to Azure.")]
         public string Path { get; set; }
+
+        [Option('m', "mode", Required = true, HelpText = "Destination Service for the copy jobs, Azure blob or file storage.")]
+        public CopyMode Mode { get; set; }
 
         // Omitting long name, defaults to name of property, ie "--verbose"
         [Option('q', "quietmode", Required = false,
@@ -35,6 +48,8 @@ namespace aafccore.control
         HelpText = "Will only start one of a subset of batches, used to start individual copy processes")]
         public bool BatchMode { get; set; } = false;
 
+        // ToDo: Decide if we need to remove this option, or allow ops admins to have 
+        // full control of behaviour
         [Option("batchclient", Required = false,
         HelpText = FixedStrings.BatchClient)]
         public int WorkerId { get; set; } = 0;
@@ -71,7 +86,6 @@ namespace aafccore.control
         HelpText = "The number of file runners to start per folder queue, maxed out usually at 4, better is more worker queues in general")]
         public int FileRunnerPerFolderQueue { get; set; } = 2;
 
-
         public bool Quiet()
         {
             return QuietMode;
@@ -91,5 +105,5 @@ namespace aafccore.control
         {
             return FileRunnerPerFolderQueue;
         }
-    }
+     }
 }
