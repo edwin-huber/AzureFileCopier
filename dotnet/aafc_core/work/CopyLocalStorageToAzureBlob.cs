@@ -73,7 +73,7 @@ namespace aafccore.work
                 }
                 // ToDo: Add Job / Queue Id to log events
                 Log.Always(FixedStrings.StartingFolderQueueLogJson + "\":\"" + opts.WorkerId);
-                await base.workManager.ProcessWorkQueue(base.workManager.folderCopyQueue, false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(true);
+                await base.workManager.ProcessWorkQueue(base.workManager.folderCopyQueue, false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
 
             }
         }

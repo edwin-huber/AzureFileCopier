@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 
 namespace aafccore.util
 {
@@ -51,7 +52,7 @@ namespace aafccore.util
         {
             if (!QuietMode)
             {
-                logger.LogInformation(CreateDateString() + FixedStrings.LogInfoSeparator + "{\"" + message + "\"}");
+                logger.LogInformation(CreateDateString() + FixedStrings.LogInfoSeparator + "{\"thread\":\"" + Thread.CurrentThread.Name + "\"," + "{\"" + message + "\"}}");
             }
         }
 
@@ -60,7 +61,7 @@ namespace aafccore.util
         {
             if (!QuietMode)
             {
-                logger.LogDebug(CreateDateString() + FixedStrings.LogDebugSeparator + "{\"" + message + "\"}");
+                logger.LogDebug(CreateDateString() + FixedStrings.LogDebugSeparator + "{\"thread\":\"" + Thread.CurrentThread.Name + "\"," + "{\"" + message + "\"}}");
             }
         }
 
