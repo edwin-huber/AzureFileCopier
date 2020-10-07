@@ -5,6 +5,7 @@ using Microsoft.Azure.Storage.Queue;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace aafccore.work
@@ -57,15 +58,15 @@ namespace aafccore.work
                     }
                     catch (AggregateException ae)
                     {
-                        Log.Always(ae.Message);
+                        Log.Always(ae.Message, Thread.CurrentThread.Name);
                     }
                     catch (StorageException se)
                     {
-                        Log.Always(se.Message);
+                        Log.Always(se.Message, Thread.CurrentThread.Name);
                     }
                     catch (Exception e)
                     {
-                        Log.Always(e.Message);
+                        Log.Always(e.Message, Thread.CurrentThread.Name);
                         throw;
                     }
                 }
@@ -90,7 +91,7 @@ namespace aafccore.work
             }
             catch (StorageException se)
             {
-                Log.Always(se.Message);
+                Log.Always(se.Message, Thread.CurrentThread.Name);
             }
             if (CurrentQueueMessages != null)
             {
@@ -120,15 +121,15 @@ namespace aafccore.work
             }
             catch (AggregateException ae)
             {
-                Log.Always(ae.Message);
+                Log.Always(ae.Message, Thread.CurrentThread.Name);
             }
             catch (StorageException se)
             {
-                Log.Always(se.Message);
+                Log.Always(se.Message, Thread.CurrentThread.Name);
             }
             catch (Exception e)
             {
-                Log.Always(e.Message);
+                Log.Always(e.Message, Thread.CurrentThread.Name);
                 throw;
             }
             return succeeded;
@@ -148,7 +149,7 @@ namespace aafccore.work
             }
             catch (Exception e)
             {
-                Log.Debug(e.Message);
+                Log.Debug(e.Message, Thread.CurrentThread.Name);
             }
             return !empty;
         }

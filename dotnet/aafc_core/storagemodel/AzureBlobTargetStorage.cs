@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace aafccore.storagemodel
 {
@@ -24,9 +25,9 @@ namespace aafccore.storagemodel
         readonly StorageCredentials storageCreds;
         internal AzureBlobTargetStorage()
         {
-            storageCreds = new StorageCredentials(Configuration.Config.GetValue<string>(ConfigStrings.TargetStorageAccountName), Configuration.Config.GetValue<string>(ConfigStrings.TargetStorageKey));
+            storageCreds = new StorageCredentials(CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetStorageAccountName), CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetStorageKey));
             AzureBlobClient = new CloudBlobClient(new Uri(AzureServiceFactory.TargetStorageAccount.Value.BlobStorageUri.PrimaryUri.ToString()), storageCreds);
-            AzureBlobContainer = AzureBlobClient.GetContainerReference(Configuration.Config.GetValue<string>(ConfigStrings.TargetAzureBlobContainerName));
+            AzureBlobContainer = AzureBlobClient.GetContainerReference(CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetAzureBlobContainerName));
         }
 
 
@@ -52,10 +53,10 @@ namespace aafccore.storagemodel
             }
             catch (Exception e)
             {
-                Log.Always(e.Message);
+                Log.Always(e.Message, Thread.CurrentThread.Name);
             }
             sw.Stop();
-            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds);
+            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds, Thread.CurrentThread.Name);
             return succeeded;
         }
 

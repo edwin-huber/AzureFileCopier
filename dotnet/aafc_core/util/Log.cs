@@ -15,6 +15,7 @@ namespace aafccore.util
     /// </summary>
     internal static class Log
     {
+        // ToDo: Change to proper singleton initialization rather than static constructor
         static Log()
         {
             // Create the DI container.
@@ -24,7 +25,7 @@ namespace aafccore.util
                    .AddFilter("aafc_core.Program", LogLevel.Debug)
                    .AddFilter<Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider>("Category", LogLevel.Information)
                    .AddConsole());
-            services.AddApplicationInsightsTelemetryWorkerService(Configuration.Config.GetValue<string>(ConfigStrings.InstrumentationKey));
+            services.AddApplicationInsightsTelemetryWorkerService(CopierConfiguration.Config.GetValue<string>(ConfigStrings.InstrumentationKey));
             // Build ServiceProvider.
             IServiceProvider serviceProvider = services.BuildServiceProvider();
             // Obtain logger instance from DI.
@@ -48,20 +49,20 @@ namespace aafccore.util
             telemetryClient.TrackEvent(eventName);
         }
 
-        internal static void Always(string message)
+        internal static void Always(string message, string thread)
         {
             if (!QuietMode)
             {
-                logger.LogInformation(CreateDateString() + FixedStrings.LogInfoSeparator + "{\"thread\":\"" + Thread.CurrentThread.Name + "\"," + "{\"" + message + "\"}}");
+                logger.LogInformation(CreateDateString() + FixedStrings.LogInfoSeparator + "{\"thread\":\"" + thread + "\"," + "{\"" + message + "\"}}");
             }
         }
 
         [Conditional("DEBUG")]
-        public static void Debug(string message)
+        public static void Debug(string message, string thread)
         {
             if (!QuietMode)
             {
-                logger.LogDebug(CreateDateString() + FixedStrings.LogDebugSeparator + "{\"thread\":\"" + Thread.CurrentThread.Name + "\"," + "{\"" + message + "\"}}");
+                logger.LogDebug(CreateDateString() + FixedStrings.LogDebugSeparator + "{\"thread\":\"" + thread + "\"," + "{\"" + message + "\"}}");
             }
         }
 

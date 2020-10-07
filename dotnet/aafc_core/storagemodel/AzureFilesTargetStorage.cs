@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace aafccore.storagemodel
 {
@@ -23,8 +24,8 @@ namespace aafccore.storagemodel
         readonly StorageCredentials storageCreds;
         internal AzureFilesTargetStorage()
         {
-            storageCreds = new StorageCredentials(Configuration.Config.GetValue<string>(ConfigStrings.TargetStorageAccountName), Configuration.Config.GetValue<string>(ConfigStrings.TargetStorageKey));
-            AzureFileStorageUri = AzureServiceFactory.TargetStorageAccount.Value.FileStorageUri.PrimaryUri.ToString() + Configuration.Config.GetValue<string>(ConfigStrings.TargetAzureFilesShareName);
+            storageCreds = new StorageCredentials(CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetStorageAccountName), CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetStorageKey));
+            AzureFileStorageUri = AzureServiceFactory.TargetStorageAccount.Value.FileStorageUri.PrimaryUri.ToString() + CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetAzureFilesShareName);
         }
 
 
@@ -49,10 +50,10 @@ namespace aafccore.storagemodel
             }
             catch (Exception e)
             {
-                Log.Always(e.Message);
+                Log.Always(e.Message, Thread.CurrentThread.Name);
             }
             sw.Stop();
-            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds);
+            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds, Thread.CurrentThread.Name);
             return succeeded;
         }
 
@@ -77,12 +78,12 @@ namespace aafccore.storagemodel
             }
             catch (StorageException se)
             {
-                Log.Debug(se.Message);
+                Log.Debug(se.Message, Thread.CurrentThread.Name);
                 storageException = true;
             }
             catch (Exception e)
             {
-                Log.Always("exception :" + e.Message);
+                Log.Always("exception :" + e.Message, Thread.CurrentThread.Name);
             }
 
             if (storageException)
@@ -113,7 +114,7 @@ namespace aafccore.storagemodel
             }
             catch (Exception e)
             {
-                Log.Always("exception :" + e.Message);
+                Log.Always("exception :" + e.Message, Thread.CurrentThread.Name);
                 throw;
             }
 

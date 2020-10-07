@@ -2,7 +2,7 @@
 
 namespace aafccore.util
 {
-    public static class Configuration
+    public static class CopierConfiguration
     {
         public static readonly IConfiguration Config = new ConfigurationBuilder()
                         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)

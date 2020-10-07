@@ -6,6 +6,7 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.File;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.Threading;
 
 namespace aafccore.servicemgmt
 {
@@ -26,7 +27,7 @@ namespace aafccore.servicemgmt
         {
             lock (locker)
             {
-                cfs = ConnectToFileStorage().GetShareReference(Configuration.Config.GetValue<string>(ConfigStrings.TargetAzureFilesShareName));
+                cfs = ConnectToFileStorage().GetShareReference(CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetAzureFilesShareName));
                 WorkerCount = workerCount;
             }
         }
@@ -59,20 +60,20 @@ namespace aafccore.servicemgmt
                 {
                     stackName = CloudObjectNameStrings.copyStructureStackName;
                 }
-                Log.Debug(FixedStrings.UsingRedisListKey + stackName);
+                Log.Debug(FixedStrings.UsingRedisListKey + stackName, Thread.CurrentThread.Name);
                 return new AzureRedisStack(stackName);
             });
         }
 
         internal static CloudFileClient ConnectToFileStorage()
         {
-            Log.Always(FixedStrings.ConnectingToCloudShare);
+            Log.Always(FixedStrings.ConnectingToCloudShare, Thread.CurrentThread.Name);
             return TargetStorageAccount.Value.CreateCloudFileClient();
         }
 
         internal static CloudStorageAccount ConnectToControlStorage()
         {
-            Log.Always(FixedStrings.ConnectingToControl);
+            Log.Always(FixedStrings.ConnectingToControl, Thread.CurrentThread.Name);
             return ControlStorageAccount.Value;
         }
 

@@ -54,14 +54,14 @@ namespace aafccore.work
 
             if (opts.FileOnlyMode)
             {
-                Log.Always("FILE_RUNNER_START");
+                Log.Always("FILE_RUNNER_START", Thread.CurrentThread.Name);
                 
                 base.workManager.fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
                 await base.workManager.StartFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
             }
             else if (opts.LargeFileOnlyMode)
             {
-                Log.Always("LARGE_FILE_RUNNER_START");
+                Log.Always("LARGE_FILE_RUNNER_START", Thread.CurrentThread.Name);
                 await base.workManager.StartLargeFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
             }
             else
@@ -72,7 +72,7 @@ namespace aafccore.work
                     PrepareBatchedProcessingAndQueues(opts);
                 }
                 // ToDo: Add Job / Queue Id to log events
-                Log.Always(FixedStrings.StartingFolderQueueLogJson + "\":\"" + opts.WorkerId);
+                Log.Always(FixedStrings.StartingFolderQueueLogJson + "\":\"" + opts.WorkerId, Thread.CurrentThread.Name);
                 await base.workManager.ProcessWorkQueue(base.workManager.folderCopyQueue, false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
 
             }
@@ -127,7 +127,7 @@ namespace aafccore.work
                                     // we do not create folders in blob storage, the folder names serve as file name prefix...
                                     if (await base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
                                     {
-                                        Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
+                                        Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
                                         await base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath).ConfigureAwait(true);
                                         await base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
                                     }
@@ -151,7 +151,7 @@ namespace aafccore.work
                             Thread.Sleep(60000); // Folder queues sleep 60 seconds in case failed objects need to reappear...
                         }
                         // jittering the retry
-                        Log.Always("Unable to find work, retrying in a moment... if all queues are empty, press any key to exit");
+                        Log.Always("Unable to find work, retrying in a moment... if all queues are empty, press any key to exit", Thread.CurrentThread.Name);
                         Random rnd = new Random();
                         int sleepTime = rnd.Next(1, 3) * 10000;
                         Thread.Sleep(sleepTime);
@@ -160,14 +160,14 @@ namespace aafccore.work
             }
             catch (Exception cf)
             {
-                Log.Always(ErrorStrings.ErrorProcessingWorkException);
-                Log.Always(cf.Message);
-                Log.Always(cf.StackTrace);
-                Log.Always(cf.InnerException.Message);
-                Log.Always(cf.InnerException.StackTrace);
+                Log.Always(ErrorStrings.ErrorProcessingWorkException, Thread.CurrentThread.Name);
+                Log.Always(cf.Message, Thread.CurrentThread.Name);
+                Log.Always(cf.StackTrace, Thread.CurrentThread.Name);
+                Log.Always(cf.InnerException.Message, Thread.CurrentThread.Name);
+                Log.Always(cf.InnerException.StackTrace, Thread.CurrentThread.Name);
                 return;
             }
-            Log.Always(FixedStrings.RanOutOfQueueMessages);
+            Log.Always(FixedStrings.RanOutOfQueueMessages, Thread.CurrentThread.Name);
         }
     }
 }

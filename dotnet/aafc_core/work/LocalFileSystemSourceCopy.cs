@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace aafccore.work
@@ -99,7 +100,7 @@ namespace aafccore.work
             if (folder.Length < 1)
             {
                 // no adjust
-                Log.Always("Copying root folder");
+                Log.Always("Copying root folder", Thread.CurrentThread.Name);
             }
             else
             {

@@ -22,7 +22,7 @@ namespace aafccore.util
         /// <param name="s"></param>
         /// <param name="x"></param>
         /// <param name="y"></param>
-        internal void WriteAt(string s, int x, int y)
+        internal static void WriteAt(string s, int x, int y)
         {
             try
             {

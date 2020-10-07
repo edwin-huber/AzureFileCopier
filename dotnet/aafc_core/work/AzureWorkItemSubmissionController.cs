@@ -3,6 +3,7 @@ using aafccore.util;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace aafccore.work
@@ -60,7 +61,7 @@ namespace aafccore.work
                     CurrentFileManangerIndex = 0;
                 }
             }
-            Log.Always("FILE : " + workitem.SourcePath + " submitted to " + CurrentFileManangerIndex);
+            Log.Always("FILE : " + workitem.SourcePath + " submitted to " + CurrentFileManangerIndex, Thread.CurrentThread.Name);
             return AzureFileQueueManagers[CurrentFileManangerIndex].Submit(workitem);
             
         }
@@ -76,7 +77,7 @@ namespace aafccore.work
                     CurrentFolderManangerIndex = 0;
                 }
             }
-            Log.Always("FOLDER : " + workitem.SourcePath + " submitted to " + CurrentFileManangerIndex);
+            Log.Always("FOLDER : " + workitem.SourcePath + " submitted to " + CurrentFolderManangerIndex, Thread.CurrentThread.Name);
             return AzureFolderQueueManagers[CurrentFolderManangerIndex].Submit(workitem);
         }
 

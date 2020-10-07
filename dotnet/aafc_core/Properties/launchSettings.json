@@ -6,7 +6,7 @@
     },
     "reset": {
       "commandName": "Project",
-      "commandLineArgs": "reset -w 4"
+      "commandLineArgs": "reset -w 16"
     },
     "copy1": {
       "commandName": "Project",
@@ -59,6 +59,14 @@
     "bernd4": {
       "commandName": "Project",
       "commandLineArgs": "copy -m blob -p z:\\testing\\testcontent -w 4 --pathtoremove testing\\testcontent"
+    },
+    "bernd16": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -m blob -p z:\\testing\\testcontent -w 16 --pathtoremove testing\\testcontent -q"
+    },
+    "bernd11": {
+      "commandName": "Project",
+      "commandLineArgs": "copy -m blob -p z:\\testing\\testcontent -w 16 --pathtoremove testing\\testcontent -f"
     }
   }
 }

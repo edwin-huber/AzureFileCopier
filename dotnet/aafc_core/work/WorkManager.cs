@@ -22,11 +22,11 @@ namespace aafccore.work
         private readonly IWorkItemController WorkItemSubmissionController;
 
         protected static ISetInterface folderDoneSet;
-        protected readonly double largeFileSize = Configuration.Config.GetValue<double>(ConfigStrings.LARGE_FILE_SIZE_BYTES);
-        internal readonly int MaxQueueRetry = Configuration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
+        protected readonly double largeFileSize = CopierConfiguration.Config.GetValue<double>(ConfigStrings.LARGE_FILE_SIZE_BYTES);
+        internal readonly int MaxQueueRetry = CopierConfiguration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
 
         // Polly Retry Control
-        protected static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
+        protected static readonly int maxRetryAttempts = CopierConfiguration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
         protected static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
         protected readonly AsyncRetryPolicy retryPolicy = Policy
                 .Handle<Exception>()
@@ -47,14 +47,14 @@ namespace aafccore.work
             if (folderCount > opts.WorkerCount)
             {
                 // We have more folders than workers, we assign queues based on Worker Id
-                Log.Always(FixedStrings.ProcessingQueue + opts.WorkerId);
+                Log.Always(FixedStrings.ProcessingQueue + opts.WorkerId, Thread.CurrentThread.Name);
                 folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
                 fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
             }
             else
             {
                 // We have more workers than folders, we assign queues based on zero based folder index
-                Log.Always(FixedStrings.ProcessingQueue + batchIndex);
+                Log.Always(FixedStrings.ProcessingQueue + batchIndex, Thread.CurrentThread.Name);
                 folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
                 fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
             }
@@ -79,7 +79,7 @@ namespace aafccore.work
             }
             catch (Exception e)
             {
-                Log.Debug(e.Message);
+                Log.Debug(e.Message, Thread.CurrentThread.Name);
                 return false;
             }
         }
@@ -110,7 +110,7 @@ namespace aafccore.work
         {
             foreach (var file in files)
             {
-                Log.Debug(FixedStrings.File + file);
+                Log.Debug(FixedStrings.File + file, Thread.CurrentThread.Name);
                 WorkItem workitem = new WorkItem() { TargetPath = targetPath, SourcePath = file };
                 long length = new System.IO.FileInfo(file).Length;
                 if (length > largeFileSize)
@@ -133,8 +133,8 @@ namespace aafccore.work
             }
 
             int batchIndex = GetBatchStartingIndex(topLevelFoldersCount, opts);
-            Log.Always("BATCH INDEX " + batchIndex);
-            Log.Always(FixedStrings.ProcessingQueue + batchIndex);
+            Log.Always("BATCH INDEX " + batchIndex, Thread.CurrentThread.Name);
+            Log.Always(FixedStrings.ProcessingQueue + batchIndex, Thread.CurrentThread.Name);
             if (topLevelFoldersCount > opts.WorkerCount)
             {
                 // We have more folders than workers, we assign queues based on ThreadId
@@ -190,17 +190,17 @@ namespace aafccore.work
         /// <returns></returns>
         internal int GetBatchStartingIndex(int totalFolders, CopierOptions opts)
         {
-            return (totalFolders / opts.WorkerCount) * opts.WorkerId;
+            return (totalFolders * opts.WorkerId) / opts.WorkerCount;
         }
 
         internal async Task StartFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             while (true)
             {
-                Log.Always(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId);
+                Log.Always(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId, Thread.CurrentThread.Name);
                 await ProcessWorkQueue(fileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction).ConfigureAwait(true);
 
-                Log.Always("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
+                Log.Always("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds", Thread.CurrentThread.Name);
                 Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
             }
         }
@@ -209,10 +209,10 @@ namespace aafccore.work
         {
             while (true)
             {
-                Log.Always(FixedStrings.StartingLargeFileQueueLogJson);
+                Log.Always(FixedStrings.StartingLargeFileQueueLogJson, Thread.CurrentThread.Name);
                 await ProcessWorkQueue(largeFileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction).ConfigureAwait(true);
 
-                Log.Always("Large File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds");
+                Log.Always("Large File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds", Thread.CurrentThread.Name);
                 Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
             }
         }
@@ -270,10 +270,10 @@ namespace aafccore.work
                                     // we do not create folders in blob storage, the folder names serve as file name prefix...
                                     if (await WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
                                     {
-                                        Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath);
+                                        Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
                                         if (!createFolderFunction(workitem.TargetPath))
                                         {
-                                            Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
+                                            Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath, Thread.CurrentThread.Name);
                                         }
                                         await SubmitFolderWorkitems(enumerateSourceFoldersFunction(workitem.SourcePath), opts, targetAdjustmentFunction).ConfigureAwait(true);
                                         await SubmitFileWorkItems(workitem.TargetPath, enumerateSourceFilesFunction(workitem.SourcePath)).ConfigureAwait(true);
@@ -298,7 +298,7 @@ namespace aafccore.work
                             Thread.Sleep(60000); // Folder queues sleep 60 seconds in case failed objects need to reappear...
                         }
                         // jittering the retry
-                        Log.Always("Unable to find work, retrying in a moment... if all queues are empty, press any key to exit");
+                        Log.Always("Unable to find work, retrying in a moment... if all queues are empty, press any key to exit", Thread.CurrentThread.Name);
                         Random rnd = new Random();
                         int sleepTime = rnd.Next(1, 3) * 10000;
                         Thread.Sleep(sleepTime);
@@ -307,14 +307,14 @@ namespace aafccore.work
             }
             catch (Exception cf)
             {
-                Log.Always(ErrorStrings.ErrorProcessingWorkException);
-                Log.Always(cf.Message);
-                Log.Always(cf.StackTrace);
-                Log.Always(cf.InnerException.Message);
-                Log.Always(cf.InnerException.StackTrace);
+                Log.Always(ErrorStrings.ErrorProcessingWorkException, Thread.CurrentThread.Name);
+                Log.Always(cf.Message, Thread.CurrentThread.Name);
+                Log.Always(cf.StackTrace, Thread.CurrentThread.Name);
+                Log.Always(cf.InnerException.Message, Thread.CurrentThread.Name);
+                Log.Always(cf.InnerException.StackTrace, Thread.CurrentThread.Name);
                 return;
             }
-            Log.Always(FixedStrings.RanOutOfQueueMessages);
+            Log.Always(FixedStrings.RanOutOfQueueMessages, Thread.CurrentThread.Name);
         }
 
         /// <summary>

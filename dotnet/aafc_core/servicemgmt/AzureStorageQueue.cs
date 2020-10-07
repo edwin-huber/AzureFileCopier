@@ -17,9 +17,9 @@ namespace aafccore.servicemgmt
         private CloudQueue queue;
         private readonly CloudStorageAccount storageAccount;
         private System.TimeSpan queueMessageHiddenTimeout;
-        private static readonly int numberOfMessagesToDequeue = Configuration.Config.GetValue<int>(ConfigStrings.NUMBER_OF_MESSAGES_TO_DEQUEUE);
+        private static readonly int numberOfMessagesToDequeue = CopierConfiguration.Config.GetValue<int>(ConfigStrings.NUMBER_OF_MESSAGES_TO_DEQUEUE);
         // Polly Retry Control
-        private static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
+        private static readonly int maxRetryAttempts = CopierConfiguration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
         private static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
         private readonly AsyncRetryPolicy retryPolicy = Policy
                 .Handle<Exception>()
@@ -31,12 +31,12 @@ namespace aafccore.servicemgmt
             TimeSpan hiddenMessageTimeout;
             if (largeFiles)
             {
-                var timeout = Configuration.Config.GetValue<Int32>(ConfigStrings.LARGE_FILE_COPY_TIMEOUT);
+                var timeout = CopierConfiguration.Config.GetValue<Int32>(ConfigStrings.LARGE_FILE_COPY_TIMEOUT);
                 hiddenMessageTimeout = TimeSpan.FromMinutes(timeout);
             }
             else
             {
-                var timeout = Configuration.Config.GetValue<Int32>(ConfigStrings.STANDARD_QUEUE_MESSAGE_TIMEOUT);
+                var timeout = CopierConfiguration.Config.GetValue<Int32>(ConfigStrings.STANDARD_QUEUE_MESSAGE_TIMEOUT);
                 hiddenMessageTimeout = TimeSpan.FromSeconds(timeout);
             }
             CreateQueue(queueName, hiddenMessageTimeout);
@@ -99,7 +99,7 @@ namespace aafccore.servicemgmt
                         }
                         else
                         {
-                            Log.Always(FixedStrings.QueueBackOff);
+                            Log.Always(FixedStrings.QueueBackOff, Thread.CurrentThread.Name);
                             Thread.Sleep(sleepTime);
                         }
                     }
@@ -109,7 +109,7 @@ namespace aafccore.servicemgmt
                         if(retryCount < maxRetryAttempts)
                         {
                             retryCount++;
-                            Log.Always(FixedStrings.QueueEmptyMessageJson);
+                            Log.Always(FixedStrings.QueueEmptyMessageJson, Thread.CurrentThread.Name);
                             Thread.Sleep(10000);
                         }
                         else
@@ -140,11 +140,11 @@ namespace aafccore.servicemgmt
                 }
                 catch (AggregateException ae)
                 {
-                    Log.Always(ae.Message);
+                    Log.Always(ae.Message, Thread.CurrentThread.Name);
                 }
                 catch (Exception dm)
                 {
-                    Log.Always(dm.Message);
+                    Log.Always(dm.Message, Thread.CurrentThread.Name);
                 }
             }).ConfigureAwait(true);
         }
@@ -170,11 +170,11 @@ namespace aafccore.servicemgmt
                         }
                         catch (AggregateException ae)
                         {
-                            Log.Always(ae.Message);
+                            Log.Always(ae.Message, Thread.CurrentThread.Name);
                         }
                         catch (Exception dm)
                         {
-                            Log.Always(dm.Message);
+                            Log.Always(dm.Message, Thread.CurrentThread.Name);
                         }
                     }
                 }

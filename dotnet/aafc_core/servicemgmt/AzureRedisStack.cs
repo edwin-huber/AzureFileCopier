@@ -16,7 +16,7 @@ namespace aafccore.servicemgmt
         private readonly string stackKey;
 
         // Polly Retry Control
-        private static readonly int maxRetryAttempts = Configuration.Config.GetValue<int>(ConfigStrings.MAX_REDIS_RETRY);
+        private static readonly int maxRetryAttempts = CopierConfiguration.Config.GetValue<int>(ConfigStrings.MAX_REDIS_RETRY);
         private static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
         private readonly AsyncRetryPolicy retryPolicy = Policy
                 .Handle<Exception>()
@@ -39,7 +39,7 @@ namespace aafccore.servicemgmt
         /// </summary>
         private static readonly Lazy<ConnectionMultiplexer> lazyConnection = new Lazy<ConnectionMultiplexer>(() =>
         {
-            string cacheConnectionString = Configuration.Config.GetValue<string>(ConfigStrings.RedisConnectionString);
+            string cacheConnectionString = CopierConfiguration.Config.GetValue<string>(ConfigStrings.RedisConnectionString);
             return ConnectionMultiplexer.Connect(cacheConnectionString);
         });
 

@@ -30,11 +30,11 @@ namespace aafccore.control
             Log.QuietMode = opts.QuietMode;
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            Log.Always(FixedStrings.ResetModeActivatedText);
+            Log.Always(FixedStrings.ResetModeActivatedText, Thread.CurrentThread.Name);
             ResetWork work = new ResetWork(opts);
             await work.Reset().ConfigureAwait(true);
             sw.Stop();
-            Log.Always(FixedStrings.FinishedJob + (sw.ElapsedMilliseconds / 1000) + FixedStrings.Seconds);
+            Log.Always(FixedStrings.FinishedJob + (sw.ElapsedMilliseconds / 1000) + FixedStrings.Seconds, Thread.CurrentThread.Name);
             Console.ReadKey();
             return 0;
         }
@@ -64,8 +64,8 @@ namespace aafccore.control
             catch (Exception outerCatch) 
             {
                 // catching generic here as we have not yet nailed down all expected exception types
-                Log.Always(outerCatch.Message);
-                Log.Always(outerCatch.StackTrace);
+                Log.Always(outerCatch.Message, Thread.CurrentThread.Name);
+                Log.Always(outerCatch.StackTrace, Thread.CurrentThread.Name);
             }
             Console.ReadKey(); // wait for key press which allows ending the program
             return 0;
@@ -73,7 +73,7 @@ namespace aafccore.control
 
         private static void StartWorkerThread(int jobId, ICopyOptions opts, string name, bool fileMode, bool largeFileMode)
         {
-            Log.Always("THREAD START : " + name + jobId);
+            Log.Debug("THREAD START : " + name + jobId, Thread.CurrentThread.Name);
             CopierOptions jobOpts = opts as CopierOptions;
             jobOpts = ObjectCloner.CloneJson(jobOpts);
             jobOpts.WorkerId = jobId;
@@ -97,11 +97,5 @@ namespace aafccore.control
             jobThread.Name = name + jobId;
             jobThread.Start();
         }
-
-        private static void StartMonitor(int queues)
-        {
-            ProcessStarter.StartMonitorProcess(queues);
-        }
-
     }
 }

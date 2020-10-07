@@ -3,6 +3,7 @@ using aafccore.util;
 using Microsoft.Azure.Storage;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.Threading;
 
 namespace aafccore.servicemgmt
 {
@@ -27,28 +28,24 @@ namespace aafccore.servicemgmt
                 switch (connectionType)
                 {
                     case ConnectionType.control:
-                        storageAccount = CloudStorageAccount.Parse(Configuration.Config.GetValue<string>(ConfigStrings.ControlStorageConnectionString));
+                        storageAccount = CloudStorageAccount.Parse(CopierConfiguration.Config.GetValue<string>(ConfigStrings.ControlStorageConnectionString));
                         break;
                     case ConnectionType.target:
-                        storageAccount = CloudStorageAccount.Parse(Configuration.Config.GetValue<string>(ConfigStrings.TargetStorageConnectionString));
+                        storageAccount = CloudStorageAccount.Parse(CopierConfiguration.Config.GetValue<string>(ConfigStrings.TargetStorageConnectionString));
                         break;
                 }
 
             }
             catch (FormatException fe)
             {
-                Log.Always(fe.Message);
-                Log.Always("");
-                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount);
-                Log.Always("");
+                Log.Always(fe.Message, Thread.CurrentThread.Name);
+                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount, Thread.CurrentThread.Name);
                 Environment.Exit(1);
             }
             catch (ArgumentException ae)
             {
-                Log.Always(ae.Message);
-                Log.Always("");
-                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount);
-                Log.Always("");
+                Log.Always(ae.Message, Thread.CurrentThread.Name);
+                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount, Thread.CurrentThread.Name);
                 Environment.Exit(1);
             }
 
