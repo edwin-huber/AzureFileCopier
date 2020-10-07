@@ -27,8 +27,14 @@ namespace aafccore.work
         {
             WorkerCount = workerCount;
             initializeWorkItemMgmtAndQueues(workerCount);
-            CurrentFileManangerIndex = workerId -1;
-            CurrentFolderManangerIndex = workerId - 1;
+            if (CurrentFileManangerIndex > 1)
+            {
+                CurrentFileManangerIndex = workerId - 1;
+            }
+            if (CurrentFolderManangerIndex > 1)
+            {
+                CurrentFolderManangerIndex = workerId - 1;
+            }
         }
 
         private void initializeWorkItemMgmtAndQueues(int workerCount)
@@ -54,7 +60,7 @@ namespace aafccore.work
                     CurrentFileManangerIndex = 0;
                 }
             }
-            Log.Always("File Submitted to " + CurrentFileManangerIndex);
+            Log.Always("FILE : " + workitem.SourcePath + " submitted to " + CurrentFileManangerIndex);
             return AzureFileQueueManagers[CurrentFileManangerIndex].Submit(workitem);
             
         }
@@ -70,7 +76,7 @@ namespace aafccore.work
                     CurrentFolderManangerIndex = 0;
                 }
             }
-            Log.Always("File Submitted to " + CurrentFileManangerIndex);
+            Log.Always("FOLDER : " + workitem.SourcePath + " submitted to " + CurrentFileManangerIndex);
             return AzureFolderQueueManagers[CurrentFolderManangerIndex].Submit(workitem);
         }
 

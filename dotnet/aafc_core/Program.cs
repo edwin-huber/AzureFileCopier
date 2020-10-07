@@ -9,7 +9,7 @@ namespace aafccore
     {
         static void Main(string[] args)
         {
-            _ = new AppStart(args);
+            JobDispatcher.ParseArgsAndRun(args);
         }
 
     }
