@@ -67,13 +67,13 @@ namespace aafccore.servicemgmt
 
         internal static CloudFileClient ConnectToFileStorage()
         {
-            Log.Always(FixedStrings.ConnectingToCloudShare, Thread.CurrentThread.Name);
+            Log.Debug(FixedStrings.ConnectingToCloudShare, Thread.CurrentThread.Name);
             return TargetStorageAccount.Value.CreateCloudFileClient();
         }
 
         internal static CloudStorageAccount ConnectToControlStorage()
         {
-            Log.Always(FixedStrings.ConnectingToControl, Thread.CurrentThread.Name);
+            Log.Debug(FixedStrings.ConnectingToControl, Thread.CurrentThread.Name);
             return ControlStorageAccount.Value;
         }
 

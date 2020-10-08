@@ -15,21 +15,21 @@ namespace aafccore.work
     /// Simple and Naieve Monitor implementation
     /// Loops through queues at set interval, updating stats of each queue
     /// </summary>
-    internal static class QueueMonitor
+    internal class QueueMonitor : IWork
     {
-        private static int UpdateInterval;
+        private int UpdateInterval;
+        private int WorkerCount;
+        private int LongestFileQueueLength;
+        private int LongestFolderQueueLength;
+        private int LargeFilesQueueLength;
+        private int TotalFolderMessages;
+        private int TotalFileMessages;
+        private IWorkItemMgmt[] folderWorkQueues;
+        private IWorkItemMgmt[] fileWorkQueues;
+        private IWorkItemMgmt largeFileCopyQueue;
 
-        private static int largestFileQueue = 0;
-        private static int largestFolderQueue = 0;
-        private static int largeFilesQueueLength = 0;
-        private static int totalFolderMessages = 0;
-        private static int totalFileMessages = 0;
-        private static int CurrentStattColumnOffset = 0;
-
-         internal static Task Start(int updateInterval, int workerCount)
+        internal QueueMonitor(int updateInterval, int workerCount)
         {
-
-
             if (updateInterval > 10)
             {
                 UpdateInterval = 1000 * updateInterval;
@@ -38,7 +38,20 @@ namespace aafccore.work
             {
                 UpdateInterval = 10000;
             }
-            
+            WorkerCount = workerCount;
+            folderWorkQueues = new AzureQueueWorkItemMgmt[WorkerCount];
+            fileWorkQueues = new AzureQueueWorkItemMgmt[WorkerCount];
+            for (int i = 0; i < WorkerCount; i++)
+            {
+                folderWorkQueues[i] = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + i);
+                fileWorkQueues[i] = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + i);
+            }
+
+            largeFileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.LargeFilesQueueName);
+        }
+
+        public void StartAsync()
+        {
             // loops based on interval - min 10 seconds
             while (true)
             {
@@ -46,21 +59,37 @@ namespace aafccore.work
                 // 2 options: 
                 // 1. maintain lists of all queue
                 // 2. loop through all queue dynamically
-                totalFolderMessages = 0;
-                totalFileMessages = 0;
-                CurrentStattColumnOffset = 0;
+                TotalFolderMessages = 0;
+                TotalFileMessages = 0;
+                LongestFileQueueLength = 0;
+                LongestFolderQueueLength = 0;
+                LargeFilesQueueLength = 0;
+                
                 UpdateLargeFileStats();
 
-                for (int i = 0; i < workerCount; i++)
+                for (int i = 0; i < WorkerCount; i++)
                 {
                     UpdateFolderStats(i);
                     UpdateFileStats(i);
 
-                    // update folder queues 
                 }
 
-                
-                // update file queues
+                // ToDo: Fix the logging
+                Log.Always("Queue Stats\": {\"LongestFileQueueLength\":\"" + LongestFileQueueLength + "\"" +
+                    ",\"LongestFolderQueueLength\":\"" + LongestFolderQueueLength + "\"" +
+                    ",\"LargeFilesQueueLength\":\"" + LargeFilesQueueLength + "\"" +
+                    ",\"TotalFolderMessages\":\"" + TotalFolderMessages + "\"" +
+                    ",\"TotalFileMessages\":\"" + TotalFileMessages + "\"");
+
+                if(LongestFileQueueLength == 0 &&
+                    LongestFolderQueueLength == 0 && 
+                    LargeFilesQueueLength == 0 &&
+                    TotalFolderMessages == 0 &&
+                    TotalFileMessages == 0)
+                {
+                    Log.Always("All queues look empty, press any key to exit...");
+                }
+
                 Thread.Sleep(UpdateInterval);
             }
 
@@ -68,55 +97,53 @@ namespace aafccore.work
         }
 
    
-        private static async void UpdateFolderStats(int Id)
+        private void UpdateFolderStats(int id)
         {
-            var folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + Id.ToString());
-            var sizeFolderQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(true);
+
+            int sizeFolderQueue = GetQueueSize(folderWorkQueues[id]);
             if (sizeFolderQueue > 0)
             {                
-                totalFolderMessages += sizeFolderQueue;
-                if (sizeFolderQueue > largestFolderQueue)
+                TotalFolderMessages += sizeFolderQueue;
+                if (sizeFolderQueue > LongestFolderQueueLength)
                 {
-                    largestFolderQueue = sizeFolderQueue;
+                    LongestFolderQueueLength = sizeFolderQueue;
                 }
             }
         }
 
-        private static async void UpdateFileStats(int Id)
+        // ToDo: Fix this shit
+        private void UpdateFileStats(int id)
         {
-            // ToDo: we need to reduce the number of object creations... use an iterable collection to store all queues
-            // questions around efficiency and connection limits... ?
-            var folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + Id.ToString());
-            var sizeFileQueue = await GetQueueSize(folderCopyQueue).ConfigureAwait(false);
+            var sizeFileQueue = GetQueueSize(fileWorkQueues[id]);
             if (sizeFileQueue > 0)
             {
-                totalFileMessages += sizeFileQueue;
-                if (sizeFileQueue > largestFileQueue)
+                TotalFileMessages += sizeFileQueue;
+                if (sizeFileQueue > LongestFileQueueLength)
                 {
-                    largestFileQueue = sizeFileQueue;
+                    LongestFileQueueLength = sizeFileQueue;
                 }
             }
         }
 
-        private static async void UpdateLargeFileStats()
+        private void UpdateLargeFileStats()
         {
             var largeFileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.LargeFilesQueueName);
-            var sizeLargeFilesQueue = await GetQueueSize(largeFileCopyQueue).ConfigureAwait(false);
-            if (sizeLargeFilesQueue > 0)
+            LargeFilesQueueLength = GetQueueSize(largeFileCopyQueue);
+            if (LargeFilesQueueLength > 0)
             {
-                totalFileMessages += sizeLargeFilesQueue;
-                if (sizeLargeFilesQueue > largeFilesQueueLength)
+                TotalFileMessages += LargeFilesQueueLength;
+                if (LargeFilesQueueLength > LongestFileQueueLength)
                 {
-                    largestFolderQueue = sizeLargeFilesQueue;
+                    LongestFileQueueLength = LargeFilesQueueLength;
                 }
             }
         }
 
 
 
-        private static async Task<int> GetQueueSize(IWorkItemMgmt workItemSource)
+        private int GetQueueSize(IWorkItemMgmt workItemSource)
         {
-            return await workItemSource.GetCountOfOutstandingWork().ConfigureAwait(false);
+            return workItemSource.GetCountOfOutstandingWork().ConfigureAwait(false).GetAwaiter().GetResult();
         }
     }
 }

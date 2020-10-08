@@ -99,7 +99,7 @@ namespace aafccore.servicemgmt
                         }
                         else
                         {
-                            Log.Always(FixedStrings.QueueBackOff, Thread.CurrentThread.Name);
+                            Log.Always(FixedStrings.QueueBackOff);
                             Thread.Sleep(sleepTime);
                         }
                     }
@@ -109,7 +109,7 @@ namespace aafccore.servicemgmt
                         if(retryCount < maxRetryAttempts)
                         {
                             retryCount++;
-                            Log.Always(FixedStrings.QueueEmptyMessageJson, Thread.CurrentThread.Name);
+                            Log.Always(FixedStrings.QueueEmptyMessageJson);
                             Thread.Sleep(10000);
                         }
                         else
@@ -140,11 +140,11 @@ namespace aafccore.servicemgmt
                 }
                 catch (AggregateException ae)
                 {
-                    Log.Always(ae.Message, Thread.CurrentThread.Name);
+                    Log.Always(ae.Message);
                 }
                 catch (Exception dm)
                 {
-                    Log.Always(dm.Message, Thread.CurrentThread.Name);
+                    Log.Always(dm.Message);
                 }
             }).ConfigureAwait(true);
         }
@@ -170,11 +170,11 @@ namespace aafccore.servicemgmt
                         }
                         catch (AggregateException ae)
                         {
-                            Log.Always(ae.Message, Thread.CurrentThread.Name);
+                            Log.Always(ae.Message);
                         }
                         catch (Exception dm)
                         {
-                            Log.Always(dm.Message, Thread.CurrentThread.Name);
+                            Log.Always(dm.Message);
                         }
                     }
                 }

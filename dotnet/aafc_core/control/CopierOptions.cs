@@ -8,7 +8,8 @@ namespace aafccore.control
     public enum CopyMode
     {
         blob,
-        file
+        file,
+        monitor
     }
 
     // ToDo: New help text here

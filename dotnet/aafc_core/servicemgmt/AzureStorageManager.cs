@@ -38,14 +38,14 @@ namespace aafccore.servicemgmt
             }
             catch (FormatException fe)
             {
-                Log.Always(fe.Message, Thread.CurrentThread.Name);
-                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount, Thread.CurrentThread.Name);
+                Log.Always(fe.Message);
+                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount);
                 Environment.Exit(1);
             }
             catch (ArgumentException ae)
             {
-                Log.Always(ae.Message, Thread.CurrentThread.Name);
-                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount, Thread.CurrentThread.Name);
+                Log.Always(ae.Message);
+                Log.Always(ErrorStrings.ErrorUnableToConnectToStorageAccount);
                 Environment.Exit(1);
             }
 

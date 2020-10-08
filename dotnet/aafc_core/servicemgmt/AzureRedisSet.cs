@@ -93,7 +93,7 @@ namespace aafccore.servicemgmt
                 }
                 catch (AggregateException ae)
                 {
-                    Log.Always(ae.Message, Thread.CurrentThread.Name);
+                    Log.Always(ae.Message);
                 }
                 return done;
             }).ConfigureAwait(true);

@@ -100,7 +100,7 @@ namespace aafccore.work
             if (folder.Length < 1)
             {
                 // no adjust
-                Log.Always("Copying root folder", Thread.CurrentThread.Name);
+                Log.Debug("Copying root folder", Thread.CurrentThread.Name);
             }
             else
             {

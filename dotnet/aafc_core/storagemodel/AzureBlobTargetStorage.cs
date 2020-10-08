@@ -53,10 +53,11 @@ namespace aafccore.storagemodel
             }
             catch (Exception e)
             {
-                Log.Always(e.Message, Thread.CurrentThread.Name);
+                Log.Always(e.Message);
             }
             sw.Stop();
-            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds, Thread.CurrentThread.Name);
+            // ToDo: Add this to verbose option
+            Log.Debug(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds, Thread.CurrentThread.Name);
             return succeeded;
         }
 

@@ -58,15 +58,15 @@ namespace aafccore.work
                     }
                     catch (AggregateException ae)
                     {
-                        Log.Always(ae.Message, Thread.CurrentThread.Name);
+                        Log.Always(ae.Message);
                     }
                     catch (StorageException se)
                     {
-                        Log.Always(se.Message, Thread.CurrentThread.Name);
+                        Log.Always(se.Message);
                     }
                     catch (Exception e)
                     {
-                        Log.Always(e.Message, Thread.CurrentThread.Name);
+                        Log.Always(e.Message);
                         throw;
                     }
                 }
@@ -91,7 +91,7 @@ namespace aafccore.work
             }
             catch (StorageException se)
             {
-                Log.Always(se.Message, Thread.CurrentThread.Name);
+                Log.Always(se.Message);
             }
             if (CurrentQueueMessages != null)
             {
@@ -121,15 +121,15 @@ namespace aafccore.work
             }
             catch (AggregateException ae)
             {
-                Log.Always(ae.Message, Thread.CurrentThread.Name);
+                Log.Always(ae.Message);
             }
             catch (StorageException se)
             {
-                Log.Always(se.Message, Thread.CurrentThread.Name);
+                Log.Always(se.Message);
             }
             catch (Exception e)
             {
-                Log.Always(e.Message, Thread.CurrentThread.Name);
+                Log.Always(e.Message);
                 throw;
             }
             return succeeded;

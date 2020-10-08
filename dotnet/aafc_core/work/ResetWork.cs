@@ -25,19 +25,19 @@ namespace aafccore.work
 
         public async Task Reset()
         {
-            Log.Always("Resetting redis cache set", Thread.CurrentThread.Name);
+            Log.Always("Resetting redis cache set");
             await folderDoneSet.Reset().ConfigureAwait(true);
-            Log.Always("Resetting file copy queues", Thread.CurrentThread.Name);
+            Log.Always("Resetting file copy queues");
             for (int i = 0; i < opts.WorkerCount; i++)
             {
-                Log.Always("Resetting file queue " + i, Thread.CurrentThread.Name);
+                Log.Always("Resetting file queue " + i);
                 await AzureServiceFactory.GetFileCopyQueue(i).Reset().ConfigureAwait(false);
             }
-            Log.Always("Resetting large file copy queue", Thread.CurrentThread.Name);
+            Log.Always("Resetting large file copy queue");
             await LargeFilesQueue.Reset().ConfigureAwait(true);
             for (int i = 0; i < opts.WorkerCount; i++)
             {
-                Log.Always("Resetting structure queue " + i, Thread.CurrentThread.Name);
+                Log.Always("Resetting structure queue " + i);
                 await AzureServiceFactory.GetFolderStructureQueue(i).Reset().ConfigureAwait(false);
             }
         }

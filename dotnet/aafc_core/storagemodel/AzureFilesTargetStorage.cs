@@ -50,10 +50,10 @@ namespace aafccore.storagemodel
             }
             catch (Exception e)
             {
-                Log.Always(e.Message, Thread.CurrentThread.Name);
+                Log.Always(e.Message);
             }
             sw.Stop();
-            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds, Thread.CurrentThread.Name);
+            Log.Always(FixedStrings.CopyingFileJson + sourceFilePath + FixedStrings.TimeTakenJson + sw.ElapsedMilliseconds);
             return succeeded;
         }
 
@@ -83,7 +83,7 @@ namespace aafccore.storagemodel
             }
             catch (Exception e)
             {
-                Log.Always("exception :" + e.Message, Thread.CurrentThread.Name);
+                Log.Always("exception :" + e.Message);
             }
 
             if (storageException)
@@ -114,7 +114,7 @@ namespace aafccore.storagemodel
             }
             catch (Exception e)
             {
-                Log.Always("exception :" + e.Message, Thread.CurrentThread.Name);
+                Log.Always("exception :" + e.Message);
                 throw;
             }
 

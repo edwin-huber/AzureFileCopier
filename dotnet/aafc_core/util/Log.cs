@@ -49,11 +49,11 @@ namespace aafccore.util
             telemetryClient.TrackEvent(eventName);
         }
 
-        internal static void Always(string message, string thread)
+        internal static void Always(string message)
         {
             if (!QuietMode)
             {
-                logger.LogInformation(CreateDateString() + FixedStrings.LogInfoSeparator + "{\"thread\":\"" + thread + "\"," + "{\"" + message + "\"}}");
+                logger.LogInformation(CreateDateString() + FixedStrings.LogInfoSeparator + "{\"" + message + "\"}}");
             }
         }
 

@@ -66,13 +66,13 @@ namespace aafccore.work
         private async Task ProcessAllWork()
         {
             // ToDo: Add Job / Queue Id to log events
-            Log.Always(FixedStrings.StartingFolderQueueLogJson, Thread.CurrentThread.Name);
+            Log.Debug(FixedStrings.StartingFolderQueueLogJson, Thread.CurrentThread.Name);
             await ProcessWorkQueue(base.workManager.folderCopyQueue, false).ConfigureAwait(true);
             
-            Log.Always(FixedStrings.StartingFileQueueLogJson, Thread.CurrentThread.Name);
+            Log.Debug(FixedStrings.StartingFileQueueLogJson, Thread.CurrentThread.Name);
             await ProcessWorkQueue(base.workManager.fileCopyQueue, true).ConfigureAwait(true);
 
-            Log.Always(FixedStrings.StartingLargeFileQueueLogJson, Thread.CurrentThread.Name);
+            Log.Debug(FixedStrings.StartingLargeFileQueueLogJson, Thread.CurrentThread.Name);
             await ProcessWorkQueue(base.workManager.largeFileCopyQueue, true).ConfigureAwait(true);
         }
 
@@ -115,10 +115,10 @@ namespace aafccore.work
                                 {
                                     if (await base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
                                     {
-                                        Log.Always(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
+                                        Log.Debug(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
                                         if (!azureFilesTargetStorage.CreateFolder(workitem.TargetPath))
                                         {
-                                            Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath, Thread.CurrentThread.Name);
+                                            Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
                                         }
                                         await base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath).ConfigureAwait(true);
                                         await base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
@@ -141,14 +141,14 @@ namespace aafccore.work
             }
             catch (Exception cf)
             {
-                Log.Always(ErrorStrings.ErrorProcessingWorkException, Thread.CurrentThread.Name);
-                Log.Always(cf.Message, Thread.CurrentThread.Name);
-                Log.Always(cf.StackTrace, Thread.CurrentThread.Name);
-                Log.Always(cf.InnerException.Message, Thread.CurrentThread.Name);
-                Log.Always(cf.InnerException.StackTrace, Thread.CurrentThread.Name);
+                Log.Always(ErrorStrings.ErrorProcessingWorkException);
+                Log.Always(cf.Message);
+                Log.Always(cf.StackTrace);
+                Log.Always(cf.InnerException.Message);
+                Log.Always(cf.InnerException.StackTrace);
                 return;
             }
-            Log.Always(FixedStrings.RanOutOfQueueMessages, Thread.CurrentThread.Name);
+            Log.Always(FixedStrings.RanOutOfQueueMessages);
         }
 
 
