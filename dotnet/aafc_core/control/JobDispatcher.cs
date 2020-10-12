@@ -77,7 +77,7 @@ namespace aafccore.control
                 Log.Debug(outerCatch.Message, Thread.CurrentThread.Name);
                 Log.Debug(outerCatch.StackTrace, Thread.CurrentThread.Name);
             }
-            Console.ReadKey(); // wait for key press which allows ending the program
+            // Console.ReadKey(); // wait for key press which allows ending the program
             return 0;
         }
 

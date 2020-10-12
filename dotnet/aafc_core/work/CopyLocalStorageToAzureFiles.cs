@@ -67,13 +67,13 @@ namespace aafccore.work
         {
             // ToDo: Add Job / Queue Id to log events
             Log.Debug(FixedStrings.StartingFolderQueueLogJson, Thread.CurrentThread.Name);
-            await ProcessWorkQueue(base.workManager.folderCopyQueue, false).ConfigureAwait(true);
+            ProcessWorkQueue(base.workManager.folderCopyQueue, false);
             
             Log.Debug(FixedStrings.StartingFileQueueLogJson, Thread.CurrentThread.Name);
-            await ProcessWorkQueue(base.workManager.fileCopyQueue, true).ConfigureAwait(true);
+            ProcessWorkQueue(base.workManager.fileCopyQueue, true);
 
             Log.Debug(FixedStrings.StartingLargeFileQueueLogJson, Thread.CurrentThread.Name);
-            await ProcessWorkQueue(base.workManager.largeFileCopyQueue, true).ConfigureAwait(true);
+            ProcessWorkQueue(base.workManager.largeFileCopyQueue, true);
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace aafccore.work
         /// <param name="isFileQueue"></param>
         /// <returns></returns>
         /// // ToDo: Move this as strategy to WorkManager, pass Target storage copy function in as delegate
-        private async Task ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue)
+        private void ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue)
         {
             int retryCount = 0;
             try
@@ -96,12 +96,12 @@ namespace aafccore.work
                 // we loop through several times, in case there are other workers still submitting stuff...
                 while (retryCount < base.workManager.MaxQueueRetry)
                 {
-                    bool thereIsWork = await base.workManager.IsThereWork(workQueue).ConfigureAwait(false);
+                    bool thereIsWork = base.workManager.IsThereWork(workQueue);
 
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        List <WorkItem> workitems = await base.workManager.GetWork(workQueue).ConfigureAwait(false);
+                        List <WorkItem> workitems = base.workManager.GetWork(workQueue);
 
                         foreach (var workitem in workitems)
                         {
@@ -113,21 +113,21 @@ namespace aafccore.work
                                 }
                                 else
                                 {
-                                    if (await base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
+                                    if (base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath) == false)
                                     {
                                         Log.Debug(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
                                         if (!azureFilesTargetStorage.CreateFolder(workitem.TargetPath))
                                         {
                                             Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
                                         }
-                                        await base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath).ConfigureAwait(true);
-                                        await base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
-                                        await base.workManager.FinishedProcessingFolder(workitem.SourcePath).ConfigureAwait(false);
+                                        base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath);
+                                        base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath));
+                                        base.workManager.FinishedProcessingFolder(workitem.SourcePath);
                                     }
                                 }
                             }
                         }
-                        await workQueue.CompleteWork().ConfigureAwait(true);
+                        workQueue.CompleteWork();
                     }
                     else
                     {

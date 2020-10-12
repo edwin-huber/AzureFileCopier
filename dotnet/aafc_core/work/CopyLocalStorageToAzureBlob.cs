@@ -57,13 +57,13 @@ namespace aafccore.work
                 Log.Debug("FILE_RUNNER_START", Thread.CurrentThread.Name);
                 
                 base.workManager.fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-                await base.workManager.StartFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
+                base.workManager.StartFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
                 // await Task.Factory.StartNew(base.workManager.StartFileRunner, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).ConfigureAwait(true);
             }
             else if (opts.LargeFileOnlyMode)
             {
                 Log.Debug("LARGE_FILE_RUNNER_START", Thread.CurrentThread.Name);
-                await base.workManager.StartLargeFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
+                base.workManager.StartLargeFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
             }
             else
             {
@@ -74,7 +74,7 @@ namespace aafccore.work
                 }
                 // ToDo: Add Job / Queue Id to log events
                 Log.Debug(FixedStrings.StartingFolderQueueLogJson + "\":\"" + opts.WorkerId, Thread.CurrentThread.Name);
-                await base.workManager.ProcessWorkQueue(base.workManager.folderCopyQueue, false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath).ConfigureAwait(false);
+                base.workManager.ProcessWorkQueue(base.workManager.folderCopyQueue, false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
 
             }
         }
@@ -97,7 +97,7 @@ namespace aafccore.work
         /// <param name="workQueue"></param>
         /// <param name="isFileQueue"></param>
         /// <returns></returns>
-        private async Task ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue)
+        private void ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue)
         {
             int retryCount = 0;
             try
@@ -105,12 +105,12 @@ namespace aafccore.work
                 // we loop through several times, in case there are other workers still submitting stuff...
                 while (retryCount < base.workManager.MaxQueueRetry)
                 {
-                    bool thereIsWork = await base.workManager.IsThereWork(workQueue).ConfigureAwait(false);
+                    bool thereIsWork = base.workManager.IsThereWork(workQueue);
 
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        List <WorkItem> workitems = await base.workManager.GetWork(workQueue).ConfigureAwait(false);
+                        List <WorkItem> workitems = base.workManager.GetWork(workQueue);
 
                         foreach (var workitem in workitems)
                         {
@@ -121,26 +121,28 @@ namespace aafccore.work
                                     if(azureBlobTargetStorage.CopyFile(workitem.SourcePath, workitem.TargetPath))
                                     {
                                         workitem.Succeeded = true;
+                                        Log.IncrementFileCounter();
                                     }
                                 }
                                 else
                                 {
                                     // we do not create folders in blob storage, the folder names serve as file name prefix...
-                                    if (await base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
+                                    if (base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath) == false)
                                     {
                                         Log.Debug(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
-                                        await base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath).ConfigureAwait(true);
-                                        await base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath)).ConfigureAwait(true);
+                                        base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath);
+                                        base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath));
                                     }
 
                                     // Folder was done or already done
                                     // We don't want this message hanging around the queue... as they are annoying the sysadmin...
-                                    await base.workManager.FinishedProcessingFolder(workitem.SourcePath).ConfigureAwait(false);
+                                    base.workManager.FinishedProcessingFolder(workitem.SourcePath);
+                                    Log.IncrementFolderCounter();
                                     workitem.Succeeded = true;
                                 }
                             }
                         }
-                        await workQueue.CompleteWork().ConfigureAwait(true);
+                        workQueue.CompleteWork();
                     }
                     else
                     {

@@ -4,12 +4,12 @@ namespace aafccore.servicemgmt
 {
     interface IQueueInterface
     {
-        Task<string> Dequeue();
+        string Dequeue();
 
-        Task Enqueue(string message);
+        void Enqueue(string message);
 
-        Task<bool> IsEmpty();
+        bool IsEmpty();
 
-        Task Reset();
+        void Reset();
     }
 }

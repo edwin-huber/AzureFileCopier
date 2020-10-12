@@ -143,7 +143,7 @@ namespace aafccore.work
 
         private int GetQueueSize(IWorkItemMgmt workItemSource)
         {
-            return workItemSource.GetCountOfOutstandingWork().ConfigureAwait(false).GetAwaiter().GetResult();
+            return workItemSource.GetCountOfOutstandingWork();
         }
     }
 }

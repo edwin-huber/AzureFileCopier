@@ -60,22 +60,17 @@ namespace aafccore.work
             }
         }
 
-        internal async Task<List<WorkItem>> GetWork(IWorkItemMgmt workQueue)
+        internal List<WorkItem> GetWork(IWorkItemMgmt workQueue)
         {
-            return await retryPolicy.ExecuteAsync(async () =>
-            {
-                return await workQueue.Fetch().ConfigureAwait(false);
-            }).ConfigureAwait(false);
+                return workQueue.Fetch();
         }
 
-        internal async Task<bool> IsThereWork(IWorkItemMgmt workQueue)
+        internal bool IsThereWork(IWorkItemMgmt workQueue)
         {
             try
             {
-                return await retryPolicy.ExecuteAsync(async () =>
-                {
-                    return await workQueue.WorkAvailable().ConfigureAwait(true);
-                }).ConfigureAwait(false);
+                // ToDo: IMplement synchronous retry loop to replace polly
+                return workQueue.WorkAvailable();
             }
             catch (Exception e)
             {
@@ -85,19 +80,19 @@ namespace aafccore.work
         }
 
         // ToDo: Refactor these 2 folder was done functions
-        internal async Task<bool> WasFolderAlreadyProcessed(string path)
-        { 
-            return await folderDoneSet.IsMember(path).ConfigureAwait(true);
+        internal bool WasFolderAlreadyProcessed(string path)
+        {
+            return folderDoneSet.IsMember(path).Result;
         }
 
-        internal async Task<bool> FinishedProcessingFolder(string path)
+        internal bool FinishedProcessingFolder(string path)
         {
-            return await folderDoneSet.Add(path).ConfigureAwait(false);
+            return folderDoneSet.Add(path).Result;
         }
 
-        private async Task<bool> SubmitFolderWorkItem(WorkItem workitem)
+        private bool SubmitFolderWorkItem(WorkItem workitem)
         {
-            return await WorkItemSubmissionController.SubmitFolder(workitem).ConfigureAwait(true);
+            return  WorkItemSubmissionController.SubmitFolder(workitem);
         }
 
         /// <summary>
@@ -106,7 +101,7 @@ namespace aafccore.work
         /// <param name="targetPath"></param>
         /// <param name="files"></param>
         /// <returns></returns>
-        internal async Task SubmitFileWorkItems(string targetPath, List<string> files)
+        internal void SubmitFileWorkItems(string targetPath, List<string> files)
         {
             foreach (var file in files)
             {
@@ -115,11 +110,11 @@ namespace aafccore.work
                 long length = new System.IO.FileInfo(file).Length;
                 if (length > largeFileSize)
                 {
-                    await WorkItemSubmissionController.SubmitLargeFile(workitem).ConfigureAwait(true);
+                    WorkItemSubmissionController.SubmitLargeFile(workitem);
                 }
                 else
                 {
-                    await WorkItemSubmissionController.SubmitFile(workitem).ConfigureAwait(true);
+                    WorkItemSubmissionController.SubmitFile(workitem);
                 }
             }
         }
@@ -193,24 +188,24 @@ namespace aafccore.work
             return (totalFolders * opts.WorkerId) / opts.WorkerCount;
         }
 
-        internal async Task StartFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal void StartFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             while (true)
             {
                 Log.Debug(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId, Thread.CurrentThread.Name);
-                await ProcessWorkQueue(fileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction).ConfigureAwait(true);
+                ProcessWorkQueue(fileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction);
 
                 Log.Debug("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds", Thread.CurrentThread.Name);
                 Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
             }
         }
 
-        internal async Task StartLargeFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal void StartLargeFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             while (true)
             {
                 Log.Debug(FixedStrings.StartingLargeFileQueueLogJson, Thread.CurrentThread.Name);
-                await ProcessWorkQueue(largeFileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction).ConfigureAwait(true);
+                ProcessWorkQueue(largeFileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction);
 
                 Log.Debug("Large File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds", Thread.CurrentThread.Name);
                 Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
@@ -238,7 +233,7 @@ namespace aafccore.work
         /// <param name="copyFunction"></param>
         /// <param name="createFolderFunction"></param>
         /// <returns></returns>
-        internal async Task ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue, CopyFileFunction copyFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal void ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue, CopyFileFunction copyFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             int retryCount = 0;
             try
@@ -246,12 +241,12 @@ namespace aafccore.work
                 // we loop through several times, in case there are other workers still submitting stuff...
                 while (retryCount < MaxQueueRetry)
                 {
-                    bool thereIsWork = await IsThereWork(workQueue).ConfigureAwait(false);
+                    bool thereIsWork = IsThereWork(workQueue);
 
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        List<WorkItem> workitems = await GetWork(workQueue).ConfigureAwait(false);
+                        List<WorkItem> workitems = GetWork(workQueue);
 
                         foreach (var workitem in workitems)
                         {
@@ -263,30 +258,32 @@ namespace aafccore.work
                                     if (copyFunction(workitem.SourcePath, workitem.TargetPath))
                                     {
                                         workitem.Succeeded = true;
+                                        Log.IncrementFileCounter();
                                     }
                                 }
                                 else
                                 {
                                     // we do not create folders in blob storage, the folder names serve as file name prefix...
-                                    if (await WasFolderAlreadyProcessed(workitem.SourcePath).ConfigureAwait(false) == false)
+                                    if (WasFolderAlreadyProcessed(workitem.SourcePath) == false)
                                     {
                                         Log.Debug(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
                                         if (!createFolderFunction(workitem.TargetPath))
                                         {
                                             Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
                                         }
-                                        await SubmitFolderWorkitems(enumerateSourceFoldersFunction(workitem.SourcePath), opts, targetAdjustmentFunction).ConfigureAwait(true);
-                                        await SubmitFileWorkItems(workitem.TargetPath, enumerateSourceFilesFunction(workitem.SourcePath)).ConfigureAwait(true);
+                                        Log.IncrementFolderCounter();
+                                        SubmitFolderWorkitems(enumerateSourceFoldersFunction(workitem.SourcePath), opts, targetAdjustmentFunction);
+                                        SubmitFileWorkItems(workitem.TargetPath, enumerateSourceFilesFunction(workitem.SourcePath));
                                     }
 
                                     // Folder was done or already done
                                     // We don't want this message hanging around the queue... as they are annoying the sysadmin...
-                                    await FinishedProcessingFolder(workitem.SourcePath).ConfigureAwait(false);
+                                    FinishedProcessingFolder(workitem.SourcePath);
                                     workitem.Succeeded = true;
                                 }
                             }
                         }
-                        await workQueue.CompleteWork().ConfigureAwait(true);
+                        workQueue.CompleteWork();
                     }
                     else
                     {
@@ -322,16 +319,16 @@ namespace aafccore.work
         /// </summary>
         /// <param name="folders"></param>
         /// <returns></returns>
-        internal async Task SubmitFolderWorkitems(List<string> folders, CopierOptions opts, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal void SubmitFolderWorkitems(List<string> folders, CopierOptions opts, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             foreach (var folder in folders)
             {
-                if (opts.FullCheck || (!await WasFolderAlreadyProcessed(folder).ConfigureAwait(false)))
+                if (opts.FullCheck || WasFolderAlreadyProcessed(folder) == false)
                 {
                     // ToDo: Refactoring - right now I am leaving this here, as I didn't want to have the System IO references
                     // to manipulate the directory paths in the WorkManager class
                     WorkItem workitem = new WorkItem() { TargetPath = targetAdjustmentFunction(folder, opts), SourcePath = folder };
-                    await SubmitFolderWorkItem(workitem).ConfigureAwait(false);
+                    SubmitFolderWorkItem(workitem);
                 }
             }
         }

@@ -72,12 +72,12 @@ namespace aafccore.work
 
             if (!opts.Resume)
             {
-                await workManager.SubmitFolderWorkitems(topLevelFolders, opts, this.AdjustTargetFolderPath).ConfigureAwait(false);
+                workManager.SubmitFolderWorkitems(topLevelFolders, opts, this.AdjustTargetFolderPath);
 
                 // we only want to copy the root files once
                 if (opts.WorkerId == 0)
                 {
-                    await workManager.SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path)).ConfigureAwait(false);
+                    workManager.SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path));
                 }
             }
         }

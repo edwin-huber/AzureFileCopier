@@ -15,6 +15,50 @@ namespace aafccore.util
     /// </summary>
     internal static class Log
     {
+        private static int FoldersPerSecond;
+        private static int FilesPerSecond;
+
+        internal static void IncrementFolderCounter()
+        {
+            Interlocked.Increment(ref FoldersPerSecond);
+        }
+
+        internal static void IncrementFileCounter()
+        {
+            Interlocked.Increment(ref FilesPerSecond);
+        }
+
+        internal static void StartPerSecondCounterThread()
+        {
+            ThreadStart threadStart = new ThreadStart(Log.PerSecondThreadCounter);
+            Thread jobThread = new Thread(threadStart);
+            jobThread.Name = "PerSecondCounter";
+            jobThread.Start();
+        }
+
+        private static void PerSecondThreadCounter()
+        {
+            while (true)
+            {
+                // ToDo: Might be better to switch Exchange to before Sleep
+                // and use this withj stopwatch to measure the metric, as we can't be sure when the thread 
+                // will be rescheduled during high demand
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
+                int folders = 0;
+                    Interlocked.Exchange(ref FoldersPerSecond, folders);
+                int files = 0;
+                    Interlocked.Exchange(ref FilesPerSecond, files);
+                Thread.Sleep(10000);
+                // could output this to the metric
+                Log.Always("Approx Folder Per Second : " + FoldersPerSecond / (sw.ElapsedMilliseconds/1000));
+                
+                Log.Always("Approx Files Per Second : " + FilesPerSecond / (sw.ElapsedMilliseconds / 1000));
+                sw.Stop();
+                
+            }
+        }
+
         // ToDo: Change to proper singleton initialization rather than static constructor
         static Log()
         {
@@ -32,6 +76,7 @@ namespace aafccore.util
             logger = serviceProvider.GetRequiredService<ILogger<Program>>();
             // Obtain TelemetryClient instance from DI, for additional manual tracking or to flush.
             telemetryClient = serviceProvider.GetRequiredService<TelemetryClient>();
+            StartPerSecondCounterThread();
         }
 
         static readonly ILogger<Program> logger;

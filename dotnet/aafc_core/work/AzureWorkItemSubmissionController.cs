@@ -50,7 +50,7 @@ namespace aafccore.work
         }
                 
         
-        public Task<bool> SubmitFile(WorkItem workitem)
+        public bool SubmitFile(WorkItem workitem)
         {
             lock (locker)
             {
@@ -66,7 +66,7 @@ namespace aafccore.work
             
         }
 
-        public Task<bool> SubmitFolder(WorkItem workitem)
+        public bool SubmitFolder(WorkItem workitem)
         {
             lock (locker)
             {
@@ -81,7 +81,7 @@ namespace aafccore.work
             return AzureFolderQueueManagers[CurrentFolderManangerIndex].Submit(workitem);
         }
 
-        public Task<bool> SubmitLargeFile(WorkItem workitem)
+        public bool SubmitLargeFile(WorkItem workitem)
         {
             return AzureLargeFileQueueManager.Submit(workitem);
         }

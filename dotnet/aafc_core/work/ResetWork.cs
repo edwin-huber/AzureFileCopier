@@ -31,14 +31,14 @@ namespace aafccore.work
             for (int i = 0; i < opts.WorkerCount; i++)
             {
                 Log.Always("Resetting file queue " + i);
-                await AzureServiceFactory.GetFileCopyQueue(i).Reset().ConfigureAwait(false);
+                AzureServiceFactory.GetFileCopyQueue(i).Reset();
             }
             Log.Always("Resetting large file copy queue");
-            await LargeFilesQueue.Reset().ConfigureAwait(true);
+            LargeFilesQueue.Reset();
             for (int i = 0; i < opts.WorkerCount; i++)
             {
                 Log.Always("Resetting structure queue " + i);
-                await AzureServiceFactory.GetFolderStructureQueue(i).Reset().ConfigureAwait(false);
+                AzureServiceFactory.GetFolderStructureQueue(i).Reset();
             }
         }
     }

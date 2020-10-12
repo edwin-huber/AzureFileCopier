@@ -3,15 +3,16 @@ using System.Threading.Tasks;
 
 namespace aafccore.work
 {
+    // removed Async to simplify tuning
     interface IWorkItemMgmt
     {
-        Task<bool> WorkAvailable();
-        Task<List<WorkItem>> Fetch();
+        bool WorkAvailable();
+        List<WorkItem> Fetch();
 
-        Task<bool> Submit(WorkItem workitem);
+        bool Submit(WorkItem workitem);
 
-        Task<bool> CompleteWork();
+        bool CompleteWork();
 
-        Task<int> GetCountOfOutstandingWork();
+        int GetCountOfOutstandingWork();
     }
 }

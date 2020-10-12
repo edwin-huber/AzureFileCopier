@@ -60,13 +60,10 @@ namespace aafccore.servicemgmt
         /// Unsafe for storage queue, as message will reappear unless we delete it
         /// </summary>
         /// <returns></returns>
-        public async Task<string> Dequeue()
+        public string Dequeue()
         {
-            return await retryPolicy.ExecuteAsync(async () =>
-            {
-                var result = await queue.GetMessageAsync().ConfigureAwait(true);
+                var result = queue.GetMessageAsync().Result;
                 return result.AsString;
-            }).ConfigureAwait(true);
         }
 
         /// <summary>
@@ -75,54 +72,54 @@ namespace aafccore.servicemgmt
         /// will retry dequeue operation 3 times before giving up 
         /// </summary>
         /// <returns></returns>
-        public async Task<List<CloudQueueMessage>> DequeueSafe()
+        public List<CloudQueueMessage> DequeueSafe()
         {
-            return await retryPolicy.ExecuteAsync(async () =>
+            bool dequeueing = true;
+            int retryCount = 0;
+            List<CloudQueueMessage> messages = null;
+            while (dequeueing)
             {
-                bool dequeueing = true;
-                int retryCount = 0;
-                List<CloudQueueMessage> messages = null;
-                while (dequeueing)
+                var tempMessage = queue.PeekMessage();
+                if (tempMessage != null)
                 {
-                    var tempMessage = await queue.PeekMessageAsync().ConfigureAwait(true);
-                    if (tempMessage != null)
+                    retryCount = 0;
+                    // jittering the retrieval
+                    Random rnd = new Random();
+                    int sleepTime = (int)(rnd.NextDouble() * 500);
+                    Thread.Sleep(sleepTime);
+                    // trying Synchronous Versions
+                    // messages = (List <CloudQueueMessage>) await  queue.GetMessagesAsync(numberOfMessagesToDequeue, queueMessageHiddenTimeout, null, null).ConfigureAwait(true);
+                    messages = (List<CloudQueueMessage>)queue.GetMessages(numberOfMessagesToDequeue, queueMessageHiddenTimeout, null, null);
+                    if ((messages == null || tempMessage == null) || (messages.Count > 0) && (tempMessage.Id == messages[0].Id))
                     {
-                        retryCount = 0;
-                        // jittering the retrieval
-                        Random rnd = new Random();
-                        int sleepTime = (int)(rnd.NextDouble() * 500);
-                        Thread.Sleep(sleepTime);
-                        messages = (List <CloudQueueMessage>) await  queue.GetMessagesAsync(numberOfMessagesToDequeue, queueMessageHiddenTimeout, null, null).ConfigureAwait(true);
-                        if ((messages == null || tempMessage == null) ||(messages.Count > 0) && (tempMessage.Id == messages[0].Id))
-                        {
-                            dequeueing = false;
-                        }
-                        else
-                        {
-                            Log.Always(FixedStrings.QueueBackOff);
-                            Thread.Sleep(sleepTime);
-                        }
+                        dequeueing = false;
                     }
                     else
                     {
-                        
-                        if(retryCount < maxRetryAttempts)
-                        {
-                            retryCount++;
-                            Log.Always(FixedStrings.QueueEmptyMessageJson);
-                            Thread.Sleep(10000);
-                        }
-                        else
-                        {
-                            messages = null;
-                            dequeueing = false;
-                        }
+                        Log.Always(FixedStrings.QueueBackOff);
+                        Thread.Sleep(sleepTime);
                     }
+                }
+                else
+                {
 
+                    if (retryCount < maxRetryAttempts)
+                    {
+                        retryCount++;
+                        Log.Always(FixedStrings.QueueEmptyMessageJson);
+                        Thread.Sleep(10000);
+                    }
+                    else
+                    {
+                        messages = null;
+                        dequeueing = false;
+                    }
                 }
 
-                return messages;
-            }).ConfigureAwait(true);
+            }
+
+            return messages;
+
         }
 
         /// <summary>
@@ -130,23 +127,22 @@ namespace aafccore.servicemgmt
         /// Requires that the call has properly handled the Dequeuing of the message
         /// </summary>
         /// <param name="message"></param>
-        public async Task DeleteMessage(CloudQueueMessage message)
+        public void DeleteMessage(CloudQueueMessage message)
         {
-            await retryPolicy.ExecuteAsync(async () =>
+            // ToDo: Validate that this logic is safe...
+            // might need to rethrow
+            try
             {
-                try
-                {
-                    await queue.DeleteMessageAsync(message.Id, message.PopReceipt).ConfigureAwait(true);
-                }
-                catch (AggregateException ae)
-                {
-                    Log.Always(ae.Message);
-                }
-                catch (Exception dm)
-                {
-                    Log.Always(dm.Message);
-                }
-            }).ConfigureAwait(true);
+                queue.DeleteMessage(message.Id, message.PopReceipt);
+            }
+            catch (AggregateException ae)
+            {
+                Log.Always(ae.Message);
+            }
+            catch (Exception dm)
+            {
+                Log.Always(dm.Message);
+            }
         }
 
         /// <summary>
@@ -157,38 +153,38 @@ namespace aafccore.servicemgmt
         /// <param name="message"></param>
         public async Task DeleteMessages(List<CloudQueueMessage> messages)
         {
-
-            await retryPolicy.ExecuteAsync(async () =>
+            if (messages != null && messages.Count > 0)
             {
-                if (messages != null && messages.Count > 0)
+                foreach (var message in messages)
                 {
-                    foreach (var message in messages)
+                    try
                     {
-                        try
+                        retryPolicy.ExecuteAsync(async () =>
                         {
                             await queue.DeleteMessageAsync(message.Id, message.PopReceipt).ConfigureAwait(true);
-                        }
-                        catch (AggregateException ae)
-                        {
-                            Log.Always(ae.Message);
-                        }
-                        catch (Exception dm)
-                        {
-                            Log.Always(dm.Message);
-                        }
+
+                        }).Wait();
+                    }
+                    catch (AggregateException ae)
+                    {
+                        Log.Always(ae.Message);
+                    }
+                    catch (Exception dm)
+                    {
+                        Log.Always(dm.Message);
                     }
                 }
-            }).ConfigureAwait(true);
+            }
         }
 
 
-        public async Task Enqueue(string message)
+        public void Enqueue(string message)
         {
             CloudQueueMessage cloudQueueMessage = new CloudQueueMessage(message);
-            await retryPolicy.ExecuteAsync(async () =>
+            retryPolicy.ExecuteAsync(async () =>
             {
                 await queue.AddMessageAsync(cloudQueueMessage).ConfigureAwait(true);
-            }).ConfigureAwait(true);
+            }).Wait();
         }
 
         /// <summary>
@@ -196,30 +192,33 @@ namespace aafccore.servicemgmt
         /// the queue metadata was not updating, but we still had messages in there
         /// </summary>
         /// <returns></returns>
-        public async Task<bool> IsEmpty()
+        public bool IsEmpty()
         {
-            return await retryPolicy.ExecuteAsync(async () =>
-            {
+            
                 if (queue.ApproximateMessageCount == null || queue.ApproximateMessageCount == 0)
                 {
-                    var peek = await queue.PeekMessageAsync().ConfigureAwait(true);
+                    // ToDo: add a smaller loop instead of the polly retry to allow a sync processing
+                    // need to see if and where yielding the threads is better
+                    CloudQueueMessage peek = queue.PeekMessageAsync().Result;
+                
                     if (peek != null)
                     {
                         return false;
                     }
                 }
                 return true;
-            }).ConfigureAwait(true);
+            
         }
 
-        public async Task Reset()
+        public void Reset()
         {
-            await queue.ClearAsync().ConfigureAwait(true); //.DeleteIfExists();
+            queue.ClearAsync().Wait(); 
+            // queue.DeleteIfExistsAsync();
         }
 
-        public async Task<int> FetchApproxQueueSize()
+        public int FetchApproxQueueSize()
         {
-            await queue.FetchAttributesAsync().ConfigureAwait(false);
+            queue.FetchAttributesAsync().Wait();
             return queue.ApproximateMessageCount ?? 0;
         }
     }

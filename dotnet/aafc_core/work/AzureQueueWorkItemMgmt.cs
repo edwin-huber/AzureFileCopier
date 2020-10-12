@@ -36,7 +36,7 @@ namespace aafccore.work
             azureStorageQueue = AzureServiceFactory.ConnectToAzureStorageQueue(queueName, largeFiles);
         }
 
-        public async Task<bool> CompleteWork()
+        public bool CompleteWork()
         {
             bool succeeded = false;
             if (CurrentQueueMessages != null && CurrentQueueMessages.Count > 0)
@@ -50,7 +50,7 @@ namespace aafccore.work
                         if (workItemWithStatus.Succeeded)
                         {
                             queueMessageToComplete = CurrentQueueMessages.Find(x => x.Id == workItemWithStatus.Id);
-                            await azureStorageQueue.DeleteMessage(queueMessageToComplete).ConfigureAwait(true);
+                            azureStorageQueue.DeleteMessage(queueMessageToComplete);
                         }
 
 
@@ -75,14 +75,14 @@ namespace aafccore.work
             return succeeded;
         }
 
-        public async Task<List<WorkItem>> Fetch()
+        public List<WorkItem> Fetch()
         {
             try
             {
                 if (CurrentQueueMessages == null)
                 {
                     CurrentQueueMessages = new List<CloudQueueMessage>();
-                    var queueMessages = await azureStorageQueue.DequeueSafe().ConfigureAwait(true);
+                    var queueMessages = azureStorageQueue.DequeueSafe();
                     foreach (var message in queueMessages)
                     {
                         CurrentQueueMessages.Add(message);
@@ -110,13 +110,13 @@ namespace aafccore.work
             }
         }
 
-        public async Task<bool> Submit(WorkItem workitem)
+        public bool Submit(WorkItem workitem)
         {
             bool succeeded = false;
             try
             {
                 string message = JsonSerializer.Serialize(workitem);
-                await azureStorageQueue.Enqueue(message).ConfigureAwait(true);
+                azureStorageQueue.Enqueue(message);
                 succeeded = true;
             }
             catch (AggregateException ae)
@@ -140,12 +140,12 @@ namespace aafccore.work
         /// this result is not 100% reliable
         /// </summary>
         /// <returns></returns>
-        public async Task<bool> WorkAvailable()
+        public bool WorkAvailable()
         {
             bool empty = true;
             try
             {
-                empty = await azureStorageQueue.IsEmpty().ConfigureAwait(false);
+                empty = azureStorageQueue.IsEmpty();
             }
             catch (Exception e)
             {
@@ -154,9 +154,9 @@ namespace aafccore.work
             return !empty;
         }
 
-        public async Task<int> GetCountOfOutstandingWork()
+        public int GetCountOfOutstandingWork()
         {
-            return await azureStorageQueue.FetchApproxQueueSize().ConfigureAwait(false);
+            return azureStorageQueue.FetchApproxQueueSize();
         }
 
     }

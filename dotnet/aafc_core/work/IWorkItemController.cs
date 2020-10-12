@@ -7,10 +7,10 @@ namespace aafccore.work
 {
     interface IWorkItemController
     {
-        Task<bool> SubmitFile(WorkItem workitem);
+        bool SubmitFile(WorkItem workitem);
 
-        Task<bool> SubmitFolder(WorkItem workitem);
+        bool SubmitFolder(WorkItem workitem);
 
-        Task<bool> SubmitLargeFile(WorkItem workitem);
+        bool SubmitLargeFile(WorkItem workitem);
     }
 }
