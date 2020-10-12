@@ -195,8 +195,8 @@ namespace aafccore.work
                 Log.Debug(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId, Thread.CurrentThread.Name);
                 ProcessWorkQueue(fileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction);
 
-                Log.Debug("File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds", Thread.CurrentThread.Name);
-                Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
+                Log.Debug("File runner " + opts.WorkerId + ", starting new loop in under 3 Seconds", Thread.CurrentThread.Name);
+                Thread.Sleep(Convert.ToInt32(3000 * rnd.NextDouble()));
             }
         }
 
@@ -207,8 +207,8 @@ namespace aafccore.work
                 Log.Debug(FixedStrings.StartingLargeFileQueueLogJson, Thread.CurrentThread.Name);
                 ProcessWorkQueue(largeFileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction);
 
-                Log.Debug("Large File runner " + opts.WorkerId + ", starting new loop in under 30 Seconds", Thread.CurrentThread.Name);
-                Thread.Sleep(Convert.ToInt32(30000 * rnd.NextDouble()));
+                Log.Debug("Large File runner " + opts.WorkerId + ", starting new loop in under 3 Seconds", Thread.CurrentThread.Name);
+                Thread.Sleep(Convert.ToInt32(3000 * rnd.NextDouble()));
             }
         }
 
@@ -287,17 +287,10 @@ namespace aafccore.work
                     }
                     else
                     {
-                        if (!isFileQueue)
-                        {
-                            // only folder queues should run out of work to do
-                            // file queues might need to sleep for work to appear
-                            retryCount++;
-                            Thread.Sleep(60000); // Folder queues sleep 60 seconds in case failed objects need to reappear...
-                        }
                         // jittering the retry
                         Log.Debug("Unable to find work, retrying in a moment...", Thread.CurrentThread.ManagedThreadId.ToString());
                         Random rnd = new Random();
-                        int sleepTime = rnd.Next(1, 3) * 10000;
+                        int sleepTime = rnd.Next(1, 3) * 500;
                         Thread.Sleep(sleepTime);
                     }
                 }

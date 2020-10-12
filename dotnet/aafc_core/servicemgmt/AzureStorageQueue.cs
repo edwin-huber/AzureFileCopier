@@ -107,7 +107,7 @@ namespace aafccore.servicemgmt
                     {
                         retryCount++;
                         Log.Always(FixedStrings.QueueEmptyMessageJson);
-                        Thread.Sleep(10000);
+                        Thread.Sleep(1000);
                     }
                     else
                     {

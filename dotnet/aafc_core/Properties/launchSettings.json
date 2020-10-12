@@ -58,7 +58,7 @@
     },
     "bernd4": {
       "commandName": "Project",
-      "commandLineArgs": "copy -m blob -p z:\\testing\\testcontent -w 4 --pathtoremove testing\\testcontent"
+      "commandLineArgs": "copy -m blob -p z:\\testing\\testcontent -w 7 --pathtoremove testing\\testcontent"
     },
     "bernd16": {
       "commandName": "Project",

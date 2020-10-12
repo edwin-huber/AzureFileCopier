@@ -146,17 +146,10 @@ namespace aafccore.work
                     }
                     else
                     {
-                        if (!isFileQueue)
-                        {
-                            // only folder queues should run out of work to do
-                            // file queues might need to sleep for work to appear
-                            retryCount++;
-                            Thread.Sleep(60000); // Folder queues sleep 60 seconds in case failed objects need to reappear...
-                        }
-                        // jittering the retry
+                         // jittering the retry
                         Log.Debug("Unable to find work, retrying in a moment... ", Thread.CurrentThread.ManagedThreadId.ToString());
                         Random rnd = new Random();
-                        int sleepTime = rnd.Next(1, 3) * 10000;
+                        int sleepTime = rnd.Next(1, 3) * 500;
                         Thread.Sleep(sleepTime);
                     }
                 }
