@@ -13,59 +13,74 @@ using System.Threading.Tasks;
 
 namespace aafccore.work
 {
-    internal class WorkManager
+    // changing work manager to static singleton
+    internal static class WorkManager
     {
-        private Random rnd = new Random();
-        internal IWorkItemMgmt folderCopyQueue;
-        internal IWorkItemMgmt fileCopyQueue;
-        internal readonly IWorkItemMgmt largeFileCopyQueue;
-        private readonly IWorkItemController WorkItemSubmissionController;
+        private static Random rnd = new Random();
+        internal static IWorkItemMgmt[] folderCopyQueues;
+        internal static IWorkItemMgmt[] fileCopyQueues;
+        private static readonly object queueInitLocker = new object();
+        private static bool queuesInitialized = false;
+        internal static IWorkItemMgmt largeFileCopyQueue;
+        private static IWorkItemController WorkItemSubmissionController;
 
-        protected static ISetInterface folderDoneSet;
-        protected readonly double largeFileSize = CopierConfiguration.Config.GetValue<double>(ConfigStrings.LARGE_FILE_SIZE_BYTES);
-        internal readonly int MaxQueueRetry = CopierConfiguration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
+        internal static ISetInterface folderDoneSet;
+        internal static readonly double largeFileSize = CopierConfiguration.Config.GetValue<double>(ConfigStrings.LARGE_FILE_SIZE_BYTES);
+        internal static readonly int MaxQueueRetry = CopierConfiguration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
 
         // Polly Retry Control
-        protected static readonly int maxRetryAttempts = CopierConfiguration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
-        protected static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
-        protected readonly AsyncRetryPolicy retryPolicy = Policy
+        internal static readonly int maxRetryAttempts = CopierConfiguration.Config.GetValue<int>(ConfigStrings.QUEUE_MAX_RETRY);
+        internal static readonly TimeSpan pauseBetweenFailures = TimeSpan.FromSeconds(10);
+        internal static readonly AsyncRetryPolicy retryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(maxRetryAttempts, i => pauseBetweenFailures);
-        private CopierOptions opts;
+        private static CopierOptions opts;
 
-        internal WorkManager(CopierOptions optsin)
+        internal static void InitWorkManager(CopierOptions optsin)
         {
             opts = optsin;
-            // Folder WorkItem mgmt needs late init, as we don't need more queues than folders!
+            // No longer using late init of worker queues as the work item mgmt controller spreads work evenly across all queues
+            // need lock outside of the init to allow for multithreaded init
+            // this is ok, as constructor is called max once per thread
+            lock (queueInitLocker)
+            {
+                if (queuesInitialized == false)
+                {
+                    CreateWorkerQueuesForBatchProcessing(opts);
+                }
+            }
             largeFileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.LargeFilesQueueName);
             WorkItemSubmissionController = WorkItemMgmtFactory.CreateAzureWorkItemSubmissionController(optsin.WorkerCount, optsin.WorkerId);
             folderDoneSet = AzureServiceFactory.GetFolderDoneSet();
         }
 
-        internal void CreateWorkerQueuesForBatchProcessing(CopierOptions opts, int folderCount, int batchIndex)
+        private static void CreateWorkerQueuesForBatchProcessing(CopierOptions opts)
         {
-            if (folderCount > opts.WorkerCount)
-            {
-                // We have more folders than workers, we assign queues based on Worker Id
-                Log.Debug(FixedStrings.ProcessingQueue + opts.WorkerId, Thread.CurrentThread.Name);
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-            }
-            else
-            {
-                // We have more workers than folders, we assign queues based on zero based folder index
-                Log.Debug(FixedStrings.ProcessingQueue + batchIndex, Thread.CurrentThread.Name);
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
-            }
+            
+                    // using simplified worker assignment
+                    folderCopyQueues = new IWorkItemMgmt[opts.WorkerCount];
+                    fileCopyQueues = new IWorkItemMgmt[opts.WorkerCount];
+
+                    for (int worker = 0; worker < opts.WorkerCount; worker++)
+                    {
+
+                        folderCopyQueues[worker] = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + worker);
+                        fileCopyQueues[worker] = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + worker);
+                    }
+                    queuesInitialized = true;
         }
 
-        internal List<WorkItem> GetWork(IWorkItemMgmt workQueue)
+        internal static bool IsReadyForWork()
+        {
+            return queuesInitialized;
+        }
+
+        internal static List<WorkItem> GetWork(IWorkItemMgmt workQueue)
         {
                 return workQueue.Fetch();
         }
 
-        internal bool IsThereWork(IWorkItemMgmt workQueue)
+        internal static bool IsThereWork(IWorkItemMgmt workQueue)
         {
             try
             {
@@ -80,17 +95,17 @@ namespace aafccore.work
         }
 
         // ToDo: Refactor these 2 folder was done functions
-        internal bool WasFolderAlreadyProcessed(string path)
+        internal static bool WasFolderAlreadyProcessed(string path)
         {
             return folderDoneSet.IsMember(path).Result;
         }
 
-        internal bool FinishedProcessingFolder(string path)
+        internal static bool FinishedProcessingFolder(string path)
         {
             return folderDoneSet.Add(path).Result;
         }
 
-        private bool SubmitFolderWorkItem(WorkItem workitem)
+        private static bool SubmitFolderWorkItem(WorkItem workitem)
         {
             return  WorkItemSubmissionController.SubmitFolder(workitem);
         }
@@ -101,7 +116,7 @@ namespace aafccore.work
         /// <param name="targetPath"></param>
         /// <param name="files"></param>
         /// <returns></returns>
-        internal void SubmitFileWorkItems(string targetPath, List<string> files)
+        internal static void SubmitFileWorkItems(string targetPath, List<string> files)
         {
             foreach (var file in files)
             {
@@ -119,36 +134,12 @@ namespace aafccore.work
             }
         }
 
-        internal void MoveWorkToNextQueue(int topLevelFoldersCount)
-        {
-            opts.WorkerId++;
-            if (opts.WorkerId >= opts.WorkerCount)
-            {
-                opts.WorkerId = 0;
-            }
-
-            int batchIndex = GetBatchStartingIndex(topLevelFoldersCount, opts);
-            Log.Debug("BATCH INDEX " + batchIndex, Thread.CurrentThread.Name);
-            Log.Debug(FixedStrings.ProcessingQueue + batchIndex, Thread.CurrentThread.Name);
-            if (topLevelFoldersCount > opts.WorkerCount)
-            {
-                // We have more folders than workers, we assign queues based on ThreadId
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-            }
-            else
-            {
-                // We have more workers than folders, we assign queues based on zero based folder index
-                folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + batchIndex);
-                fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + batchIndex);
-            }
-        }
-
+        
         /// <summary>
         /// Provides the number of folders to be copied in this batch 
         /// </summary>
         /// <returns></returns>
-        internal int GetBatchLength(int totalFolders, CopierOptions opts)
+        internal static int GetBatchLength(int totalFolders, CopierOptions opts)
         {
             if (opts.WorkerCount == 1)
             {
@@ -183,24 +174,24 @@ namespace aafccore.work
         /// to be copied by this batch client
         /// </summary>
         /// <returns></returns>
-        internal int GetBatchStartingIndex(int totalFolders, CopierOptions opts)
+        internal static int GetBatchStartingIndex(int totalFolders, CopierOptions opts)
         {
             return (totalFolders * opts.WorkerId) / opts.WorkerCount;
         }
 
-        internal void StartFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal static void StartFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             while (true)
             {
                 Log.Debug(FixedStrings.StartingFileQueueLogJson + "\", \"worker\" : \"" + opts.WorkerId, Thread.CurrentThread.Name);
-                ProcessWorkQueue(fileCopyQueue, true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction);
+                ProcessWorkQueue(fileCopyQueues[opts.WorkerId], true, copyFileFunction, createFolderFunction, enumerateSourceFoldersFunction, enumerateSourceFilesFunction, targetAdjustmentFunction);
 
                 Log.Debug("File runner " + opts.WorkerId + ", starting new loop in under 3 Seconds", Thread.CurrentThread.Name);
                 Thread.Sleep(Convert.ToInt32(3000 * rnd.NextDouble()));
             }
         }
 
-        internal void StartLargeFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal static void StartLargeFileRunner(CopyFileFunction copyFileFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             while (true)
             {
@@ -233,7 +224,7 @@ namespace aafccore.work
         /// <param name="copyFunction"></param>
         /// <param name="createFolderFunction"></param>
         /// <returns></returns>
-        internal void ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue, CopyFileFunction copyFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal static void ProcessWorkQueue(IWorkItemMgmt workQueue, bool isFileQueue, CopyFileFunction copyFunction, CreateFolderFunction createFolderFunction, EnumerateSourcesFunction enumerateSourceFoldersFunction, EnumerateSourcesFunction enumerateSourceFilesFunction, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             int retryCount = 0;
             try
@@ -312,7 +303,7 @@ namespace aafccore.work
         /// </summary>
         /// <param name="folders"></param>
         /// <returns></returns>
-        internal void SubmitFolderWorkitems(List<string> folders, CopierOptions opts, TargetAdjustmentFunction targetAdjustmentFunction)
+        internal static void SubmitFolderWorkitems(List<string> folders, CopierOptions opts, TargetAdjustmentFunction targetAdjustmentFunction)
         {
             foreach (var folder in folders)
             {

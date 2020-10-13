@@ -124,6 +124,6 @@
         internal const string StartingFolderQueueLogJson = "QueueStart\" : \"Folder Work Queue";
         internal const string StartingLargeFileQueueLogJson = "QueueStart\" : \"Large File Work Queue";
         internal const string QueueBackOff = "Queue Control\" : \"unable to lock onto message, too much competition, retrying";
-        internal const string QueueEmptyMessageJson = "Queue Empty\" : \"Sleeping 10 Seconds before retry...";
+        internal const string QueueEmptyMessageJson = "QueueStatus\" : \"Empty\", \"QueueName\" : \"";
     }
 }

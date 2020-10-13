@@ -51,30 +51,34 @@ namespace aafccore.work
         async void IWork.StartAsync()
         {
             // first enumerate top level and add to queue.
+            while(WorkManager.IsReadyForWork() == false)
+            {
+                // be boring... sleep half a sec...
+                Thread.Sleep(500);
+            }
 
             if (opts.FileOnlyMode)
             {
                 Log.Debug("FILE_RUNNER_START", Thread.CurrentThread.Name);
                 
-                base.workManager.fileCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFilesQueueName + opts.WorkerId);
-                base.workManager.StartFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
-                // await Task.Factory.StartNew(base.workManager.StartFileRunner, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).ConfigureAwait(true);
+                WorkManager.StartFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
+                // await Task.Factory.StartNew(WorkManager.StartFileRunner, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).ConfigureAwait(true);
             }
             else if (opts.LargeFileOnlyMode)
             {
                 Log.Debug("LARGE_FILE_RUNNER_START", Thread.CurrentThread.Name);
-                base.workManager.StartLargeFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
+                WorkManager.StartLargeFileRunner(azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders, localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
             }
             else
             {
-                base.workManager.folderCopyQueue = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
+                WorkManager.folderCopyQueues[opts.WorkerId] = WorkItemMgmtFactory.CreateAzureWorkItemMgmt(CloudObjectNameStrings.CopyFolderQueueName + opts.WorkerId);
                 if (!opts.Resume)
                 {
                     PrepareBatchedProcessingAndQueues(opts);
                 }
                 // ToDo: Add Job / Queue Id to log events
                 Log.Debug(FixedStrings.StartingFolderQueueLogJson + "\":\"" + opts.WorkerId, Thread.CurrentThread.Name);
-                base.workManager.ProcessWorkQueue(base.workManager.folderCopyQueue, false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
+                WorkManager.ProcessWorkQueue(WorkManager.folderCopyQueues[opts.WorkerId], false, azureBlobTargetStorage.CopyFile, BlobCreateFolderStub, localFileStorage.EnumerateFolders,localFileStorage.EnumerateFiles, base.AdjustTargetFolderPath);
 
             }
         }
@@ -103,14 +107,14 @@ namespace aafccore.work
             try
             {
                 // we loop through several times, in case there are other workers still submitting stuff...
-                while (retryCount < base.workManager.MaxQueueRetry)
+                while (retryCount < WorkManager.MaxQueueRetry)
                 {
-                    bool thereIsWork = base.workManager.IsThereWork(workQueue);
+                    bool thereIsWork = WorkManager.IsThereWork(workQueue);
 
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        List <WorkItem> workitems = base.workManager.GetWork(workQueue);
+                        List <WorkItem> workitems = WorkManager.GetWork(workQueue);
 
                         foreach (var workitem in workitems)
                         {
@@ -127,16 +131,16 @@ namespace aafccore.work
                                 else
                                 {
                                     // we do not create folders in blob storage, the folder names serve as file name prefix...
-                                    if (base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath) == false)
+                                    if (WorkManager.WasFolderAlreadyProcessed(workitem.SourcePath) == false)
                                     {
                                         Log.Debug(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
-                                        base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath);
-                                        base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath));
+                                        WorkManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath);
+                                        WorkManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath));
                                     }
 
                                     // Folder was done or already done
                                     // We don't want this message hanging around the queue... as they are annoying the sysadmin...
-                                    base.workManager.FinishedProcessingFolder(workitem.SourcePath);
+                                    WorkManager.FinishedProcessingFolder(workitem.SourcePath);
                                     Log.IncrementFolderCounter();
                                     workitem.Succeeded = true;
                                 }

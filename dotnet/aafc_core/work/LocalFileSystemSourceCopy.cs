@@ -1,19 +1,11 @@
 ﻿using aafccore.control;
-using aafccore.resources;
-using aafccore.servicemgmt;
 using aafccore.storagemodel;
 using aafccore.util;
-using Microsoft.Azure.Storage;
-using Microsoft.Extensions.Configuration;
-using Polly;
-using Polly.Retry;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace aafccore.work
 {
@@ -25,9 +17,6 @@ namespace aafccore.work
         internal readonly ISourceStorage localFileStorage;
         internal readonly StringBuilder pathAdjuster = new StringBuilder(300);
         
-        protected WorkManager workManager;
-
-
         protected readonly int originalWorkerId;
         protected int batchLength;
         protected int topLevelFoldersCount;
@@ -40,8 +29,7 @@ namespace aafccore.work
         /// <param name="cloudStorageAccount"></param>
         internal LocalFileSystemSourceCopy(CopierOptions optsin) 
         {
-            workManager = new WorkManager(optsin);
-
+            WorkManager.InitWorkManager(optsin);
 
             originalWorkerId = optsin.WorkerId;
             localFileStorage = new LocalFileStorage(optsin.ExcludeFolders.Split(',').ToList<string>(), optsin.ExcludeFiles.Split(",").ToList<string>());
@@ -63,21 +51,21 @@ namespace aafccore.work
             topLevelFoldersCount = topLevelFolders.Count;
             topLevelFolders.Sort();
 
-            batchLength = workManager.GetBatchLength(topLevelFoldersCount, opts);
-            int batchIndex = workManager.GetBatchStartingIndex(topLevelFoldersCount, opts);
+            batchLength = WorkManager.GetBatchLength(topLevelFoldersCount, opts);
+            int batchIndex = WorkManager.GetBatchStartingIndex(topLevelFoldersCount, opts);
 
             topLevelFolders = topLevelFolders.GetRange(batchIndex, batchLength);
 
-            workManager.CreateWorkerQueuesForBatchProcessing(opts, topLevelFoldersCount, batchIndex);
+            
 
             if (!opts.Resume)
             {
-                workManager.SubmitFolderWorkitems(topLevelFolders, opts, this.AdjustTargetFolderPath);
+                WorkManager.SubmitFolderWorkitems(topLevelFolders, opts, this.AdjustTargetFolderPath);
 
                 // we only want to copy the root files once
                 if (opts.WorkerId == 0)
                 {
-                    workManager.SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path));
+                    WorkManager.SubmitFileWorkItems(AdjustTargetFolderPath(opts.Path, opts), localFileStorage.EnumerateFiles(opts.Path));
                 }
             }
         }

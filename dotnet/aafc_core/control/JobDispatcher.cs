@@ -54,12 +54,16 @@ namespace aafccore.control
             {
                 // Currently tracking folder and file thread counts separately to give us
                 // flexibility to tune and adjust later
+                // need to start folders first, before files to avoid problems with init
                 for (int threadNum = 0; threadNum < opts.Workers(); threadNum++)
                 {
                     // Folder Worker
                     StartWorkerThread(FolderThreadCount, opts, "FLD", false, false);
                     FolderThreadCount++;
+                }
 
+                for (int threadNum = 0; threadNum < opts.Workers(); threadNum++)
+                {
                     // File Worker
                     StartWorkerThread(FileThreadCount, opts, "FIL", true, false);
                     FileThreadCount++;
@@ -94,7 +98,7 @@ namespace aafccore.control
 
         private static void StartWorkerThread(int jobId, ICopyOptions opts, string name, bool fileMode, bool largeFileMode)
         {
-            Log.Debug("THREAD START : " + name + jobId, Thread.CurrentThread.Name);
+            Log.Debug("THREAD START : " + name + jobId, Thread.CurrentThread.ManagedThreadId.ToString());
             CopierOptions jobOpts = opts as CopierOptions;
             jobOpts = ObjectCloner.CloneJson(jobOpts);
             jobOpts.WorkerId = jobId;
@@ -116,14 +120,14 @@ namespace aafccore.control
                     throw new Exception("Unknown CopyEnum Type");
             }
 
-            //ThreadStart threadStart = new ThreadStart(workJob.StartAsync);
-            //Thread jobThread = new Thread(threadStart);
-            //jobThread.Name = name + jobId;
-            //jobThread.Start();
+            ThreadStart threadStart = new ThreadStart(workJob.StartAsync);
+            Thread jobThread = new Thread(threadStart);
+            jobThread.Name = name + jobId;
+            jobThread.Start();
 
-#pragma warning disable CA2008 // Do not create tasks without passing a TaskScheduler
-            longRunningTaskFactory.StartNew(workJob.StartAsync);
-#pragma warning restore CA2008 // Do not create tasks without passing a TaskScheduler
+//#pragma warning disable CA2008 // Do not create tasks without passing a TaskScheduler
+//            longRunningTaskFactory.StartNew(workJob.StartAsync);
+//#pragma warning restore CA2008 // Do not create tasks without passing a TaskScheduler
         }
     }
 }

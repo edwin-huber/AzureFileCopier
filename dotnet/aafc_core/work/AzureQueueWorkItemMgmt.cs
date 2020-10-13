@@ -34,6 +34,7 @@ namespace aafccore.work
         internal AzureQueueWorkItemMgmt(string queueName, bool largeFiles)
         {
             azureStorageQueue = AzureServiceFactory.ConnectToAzureStorageQueue(queueName, largeFiles);
+            CurrentQueueMessages = new List<CloudQueueMessage>();
         }
 
         public bool CompleteWork()
@@ -71,7 +72,8 @@ namespace aafccore.work
                     }
                 }
             }
-            CurrentQueueMessages = null;
+            // empty list
+            CurrentQueueMessages = new List<CloudQueueMessage>();
             return succeeded;
         }
 
@@ -79,7 +81,7 @@ namespace aafccore.work
         {
             try
             {
-                if (CurrentQueueMessages == null)
+                if (CurrentQueueMessages.Count == 0)
                 {
                     CurrentQueueMessages = new List<CloudQueueMessage>();
                     var queueMessages = azureStorageQueue.DequeueSafe();
@@ -93,7 +95,7 @@ namespace aafccore.work
             {
                 Log.Always(se.Message);
             }
-            if (CurrentQueueMessages != null)
+            if (CurrentQueueMessages.Count != 0)
             {
                 CurrentWorkItems = new List<WorkItem>();
                 foreach (var msg in CurrentQueueMessages)

@@ -96,28 +96,32 @@ namespace aafccore.servicemgmt
                     }
                     else
                     {
-                        Log.Always(FixedStrings.QueueBackOff);
+                        if (messages.Count > 0)
+                        {
+                            Log.Always(FixedStrings.QueueBackOff);
+                        }
                         Thread.Sleep(sleepTime);
                     }
                 }
                 else
                 {
-
+                    // ToDo: Evaluate if always retrying here is more efficient than returning up empty list
                     if (retryCount < maxRetryAttempts)
                     {
                         retryCount++;
-                        Log.Always(FixedStrings.QueueEmptyMessageJson);
+                        Log.Always(FixedStrings.QueueEmptyMessageJson + queue.Name);
                         Thread.Sleep(1000);
                     }
                     else
                     {
-                        messages = null;
+                        messages = new List<CloudQueueMessage>(); // return empty list
                         dequeueing = false;
+                        retryCount = 0;
                     }
                 }
 
             }
-
+            
             return messages;
 
         }

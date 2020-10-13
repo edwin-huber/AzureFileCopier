@@ -45,16 +45,6 @@ namespace aafccore.work
             PrepareBatchedProcessingAndQueues(opts);
             await ProcessAllWork().ConfigureAwait(false);
 
-            // now go through other queues 
-            if (opts.WorkerCount > 1)
-            {
-                base.workManager.MoveWorkToNextQueue(base.topLevelFoldersCount);
-                while (opts.WorkerId != originalWorkerId)
-                {
-                    await ProcessAllWork().ConfigureAwait(false);
-                    base.workManager.MoveWorkToNextQueue(base.topLevelFoldersCount);
-                }
-            }
         }
 
  
@@ -67,13 +57,13 @@ namespace aafccore.work
         {
             // ToDo: Add Job / Queue Id to log events
             Log.Debug(FixedStrings.StartingFolderQueueLogJson, Thread.CurrentThread.Name);
-            ProcessWorkQueue(base.workManager.folderCopyQueue, false);
+            ProcessWorkQueue(WorkManager.folderCopyQueues[opts.WorkerId], false);
             
             Log.Debug(FixedStrings.StartingFileQueueLogJson, Thread.CurrentThread.Name);
-            ProcessWorkQueue(base.workManager.fileCopyQueue, true);
+            ProcessWorkQueue(WorkManager.fileCopyQueues[opts.WorkerId], true);
 
             Log.Debug(FixedStrings.StartingLargeFileQueueLogJson, Thread.CurrentThread.Name);
-            ProcessWorkQueue(base.workManager.largeFileCopyQueue, true);
+            ProcessWorkQueue(WorkManager.largeFileCopyQueue, true);
         }
 
         /// <summary>
@@ -94,14 +84,14 @@ namespace aafccore.work
             try
             {
                 // we loop through several times, in case there are other workers still submitting stuff...
-                while (retryCount < base.workManager.MaxQueueRetry)
+                while (retryCount < WorkManager.MaxQueueRetry)
                 {
-                    bool thereIsWork = base.workManager.IsThereWork(workQueue);
+                    bool thereIsWork = WorkManager.IsThereWork(workQueue);
 
                     if (thereIsWork)
                     {
                         retryCount = 0;
-                        List <WorkItem> workitems = base.workManager.GetWork(workQueue);
+                        List <WorkItem> workitems = WorkManager.GetWork(workQueue);
 
                         foreach (var workitem in workitems)
                         {
@@ -113,16 +103,16 @@ namespace aafccore.work
                                 }
                                 else
                                 {
-                                    if (base.workManager.WasFolderAlreadyProcessed(workitem.SourcePath) == false)
+                                    if (WorkManager.WasFolderAlreadyProcessed(workitem.SourcePath) == false)
                                     {
                                         Log.Debug(FixedStrings.CreatingDirectory + workitem.TargetPath, Thread.CurrentThread.Name);
                                         if (!azureFilesTargetStorage.CreateFolder(workitem.TargetPath))
                                         {
                                             Log.Always(ErrorStrings.FailedCopy + workitem.TargetPath);
                                         }
-                                        base.workManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath);
-                                        base.workManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath));
-                                        base.workManager.FinishedProcessingFolder(workitem.SourcePath);
+                                        WorkManager.SubmitFolderWorkitems(localFileStorage.EnumerateFolders(workitem.SourcePath), opts, base.AdjustTargetFolderPath);
+                                        WorkManager.SubmitFileWorkItems(workitem.TargetPath, localFileStorage.EnumerateFiles(workitem.SourcePath));
+                                        WorkManager.FinishedProcessingFolder(workitem.SourcePath);
                                     }
                                 }
                             }
