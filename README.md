@@ -5,7 +5,7 @@ This tool was written as a POC to determine if there are faster ways to copy par
 
 It provides an option for Azure sysadmins and time critical projects which can't wait for an [Azure DataBox](https://docs.microsoft.com/en-us/azure/databox-family/) to arrive.
 
-Current Version is written in dotnet core 3.1, and as such is **cross platform**, if you run into any problems, feel free to open an issue.  
+Current Version was written as a POC in dotnet core 3.1, and as such is **cross platform**, if you run into any problems, feel free to open an issue.  
 
 For details of the optimizations and design choices we made, see [here](./design.md).
 
